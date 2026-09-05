@@ -36,6 +36,7 @@ export const EmergencyRedistribution: React.FC<EmergencyRedistributionProps> = (
   const { user } = useAuth();
 
   const [recommendation, setRecommendation] = useState<RedistributionRecommendationResponse | null>(null);
+  const [recommendationsList, setRecommendationsList] = useState<RedistributionRecommendationResponse[]>([]);
   const [attested, setAttested] = useState<boolean>(false);
   const [showRejectDrawer, setShowRejectDrawer] = useState<boolean>(false);
   const [rejectReason, setRejectReason] = useState<string>('Donor buffer needed for localized spike');
@@ -57,15 +58,19 @@ export const EmergencyRedistribution: React.FC<EmergencyRedistributionProps> = (
       if (directiveId) {
         const rec = await getRedistributionDetail(directiveId);
         setRecommendation(rec);
+        setRecommendationsList([rec]);
       } else {
-        const list = await getRedistributionRecommendations('pending');
+        const effectiveStateId = user?.role === 'state_officer' ? user.scope_id : undefined;
+        const list = await getRedistributionRecommendations('pending', effectiveStateId);
         if (list && list.length > 0) {
-          setRecommendation(list[0]);
+          setRecommendationsList(list);
+          setRecommendation((prev) => (prev && list.some((r) => r.id === prev.id) ? prev : list[0]));
         } else {
-          // If no pending, fetch all recommendations
-          const allList = await getRedistributionRecommendations();
+          // If no pending, fetch all recommendations for this state jurisdiction
+          const allList = await getRedistributionRecommendations(undefined, effectiveStateId);
+          setRecommendationsList(allList);
           if (allList && allList.length > 0) {
-            setRecommendation(allList[0]);
+            setRecommendation((prev) => (prev && allList.some((r) => r.id === prev.id) ? prev : allList[0]));
           } else {
             setRecommendation(null);
           }
@@ -76,7 +81,7 @@ export const EmergencyRedistribution: React.FC<EmergencyRedistributionProps> = (
     } finally {
       setIsLoading(false);
     }
-  }, [directiveId]);
+  }, [directiveId, user?.role, user?.scope_id]);
 
   useEffect(() => {
     loadRecommendation();
@@ -145,7 +150,7 @@ export const EmergencyRedistribution: React.FC<EmergencyRedistributionProps> = (
         <div className="flex items-center gap-3">
           <span className="w-2.5 h-2.5 rounded-full bg-error animate-pulse"></span>
           <span className="text-[11px] font-mono uppercase tracking-widest text-sky-200">
-            Emergency Triage Directive
+            {user?.role === 'state_officer' ? `${user.scope_id} State Allocation Command` : 'National Emergency Rebalancing Command'}
           </span>
           <span className="text-slate-600">/</span>
           <span className="text-xs text-slate-300 font-mono">
@@ -159,6 +164,44 @@ export const EmergencyRedistribution: React.FC<EmergencyRedistributionProps> = (
           </span>
         </div>
       </div>
+
+      {/* Jurisdiction & Active Directives Selector Toolbar */}
+      {recommendationsList.length > 1 && (
+        <div className="w-full bg-white border border-slate-300 p-3 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
+              {user?.role === 'state_officer'
+                ? `${user.scope_id} State Allocation Queue`
+                : 'National Allocation Directive Queue'}
+            </span>
+            <span className="bg-slate-100 border border-slate-200 text-slate-700 font-mono text-[10px] px-2 py-0.5">
+              {recommendationsList.length} DIRECTIVES
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-slate-500 font-medium mr-1">Select Directive:</span>
+            {recommendationsList.map((rec) => {
+              const isSelected = recommendation.id === rec.id;
+              return (
+                <button
+                  key={rec.id}
+                  type="button"
+                  onClick={() => setRecommendation(rec)}
+                  className={`px-2.5 py-1 text-xs font-mono transition-colors cursor-pointer border ${
+                    isSelected
+                      ? 'bg-black text-white border-black font-bold shadow-2xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  #{rec.id}: {rec.medicine_id} ({rec.quantity}U)
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {error && <ErrorState message={error} />}
 

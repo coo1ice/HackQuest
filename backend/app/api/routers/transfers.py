@@ -18,11 +18,18 @@ router = APIRouter(tags=["Act & Transfers"])
 @router.get("/transfers", response_model=List[TransferResponse])
 async def list_transfers(
     status: Optional[str] = Query(None, description="Filter by approved, dispatched, received"),
+    state_id: Optional[str] = Query(None, description="Filter by state ID e.g. INMP"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """List inter-district emergency resource transfers with status and cargo timeline."""
-    return await transfer_service.list_transfers(db, status_filter=status)
+    effective_state_id = state_id
+    if current_user.role == UserRoleEnum.STATE_OFFICER:
+        effective_state_id = current_user.scope_id
+
+    return await transfer_service.list_transfers(
+        db, status_filter=status, state_id=effective_state_id
+    )
 
 @router.get("/transfers/{id}", response_model=TransferResponse)
 async def get_transfer_detail(

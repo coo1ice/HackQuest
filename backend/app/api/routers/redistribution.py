@@ -18,11 +18,18 @@ router = APIRouter(prefix="/redistribution", tags=["Decide & Redistribution"])
 @router.get("/recommendations", response_model=List[RedistributionRecommendationResponse])
 async def list_recommendations(
     status: Optional[str] = Query(None, description="Filter by pending, approved, or rejected"),
+    state_id: Optional[str] = Query(None, description="Filter by state ID e.g. INMP"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """List cross-district resource redistribution recommendations produced by OR-Tools solver."""
-    return await redistribution_service.list_recommendations(db, status_filter=status)
+    effective_state_id = state_id
+    if current_user.role == UserRoleEnum.STATE_OFFICER:
+        effective_state_id = current_user.scope_id
+
+    return await redistribution_service.list_recommendations(
+        db, status_filter=status, state_id=effective_state_id
+    )
 
 @router.get("/recommendations/{id}", response_model=RedistributionRecommendationResponse)
 async def get_recommendation_detail(

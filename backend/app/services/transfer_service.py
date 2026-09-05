@@ -16,16 +16,31 @@ from app.schemas.redistribution import RedistributionRecommendationResponse
 from fastapi import HTTPException, status
 from typing import List, Optional
 
+from sqlalchemy.orm import aliased
+
 VALID_TRANSITIONS = {
     TransferStatusEnum.APPROVED: [TransferStatusEnum.DISPATCHED],
     TransferStatusEnum.DISPATCHED: [TransferStatusEnum.RECEIVED],
     TransferStatusEnum.RECEIVED: [],
 }
 
-async def list_transfers(db: AsyncSession, status_filter: Optional[str] = None) -> List[TransferResponse]:
-    q = select(Transfer).join(RedistributionRecommendation).order_by(desc(Transfer.id))
+async def list_transfers(
+    db: AsyncSession,
+    status_filter: Optional[str] = None,
+    state_id: Optional[str] = None,
+) -> List[TransferResponse]:
+    q = select(Transfer).join(RedistributionRecommendation, Transfer.recommendation_id == RedistributionRecommendation.id)
     if status_filter:
         q = q.where(Transfer.status == status_filter)
+
+    if state_id:
+        FromPHC = aliased(PHC)
+        ToPHC = aliased(PHC)
+        q = q.join(FromPHC, RedistributionRecommendation.from_phc_id == FromPHC.id)
+        q = q.join(ToPHC, RedistributionRecommendation.to_phc_id == ToPHC.id)
+        q = q.where((FromPHC.state_id == state_id) | (ToPHC.state_id == state_id))
+
+    q = q.order_by(desc(Transfer.id))
     res = await db.execute(q)
     transfers = res.scalars().all()
 

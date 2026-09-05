@@ -125,10 +125,24 @@ async def run_optimizer(
         recommendations=created_recs,
     )
 
-async def list_recommendations(db: AsyncSession, status_filter: Optional[str] = None) -> List[RedistributionRecommendationResponse]:
+from sqlalchemy.orm import aliased
+
+async def list_recommendations(
+    db: AsyncSession,
+    status_filter: Optional[str] = None,
+    state_id: Optional[str] = None,
+) -> List[RedistributionRecommendationResponse]:
     q = select(RedistributionRecommendation).order_by(desc(RedistributionRecommendation.created_at))
     if status_filter:
         q = q.where(RedistributionRecommendation.status == status_filter)
+    
+    if state_id:
+        FromPHC = aliased(PHC)
+        ToPHC = aliased(PHC)
+        q = q.join(FromPHC, RedistributionRecommendation.from_phc_id == FromPHC.id)
+        q = q.join(ToPHC, RedistributionRecommendation.to_phc_id == ToPHC.id)
+        q = q.where((FromPHC.state_id == state_id) | (ToPHC.state_id == state_id))
+
     res = await db.execute(q)
     recs = res.scalars().all()
     

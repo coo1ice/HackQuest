@@ -10,6 +10,7 @@ import type { TransferResponse } from '../../api/types';
 import { LoadingState } from '../common/LoadingState';
 import { EmptyState } from '../common/EmptyState';
 import { ErrorState } from '../common/ErrorState';
+import { useAuth } from '../../context/AuthContext';
 import {
   Truck,
   Check,
@@ -29,6 +30,7 @@ export const ResourceTransferTracking: React.FC<ResourceTransferTrackingProps> =
   onNavigate,
   transferId,
 }) => {
+  const { user } = useAuth();
   const [transfers, setTransfers] = useState<TransferResponse[]>([]);
   const [selectedTransfer, setSelectedTransfer] = useState<TransferResponse | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'dispatched' | 'received'>('all');
@@ -43,7 +45,11 @@ export const ResourceTransferTracking: React.FC<ResourceTransferTrackingProps> =
     setIsLoading(true);
     setError(null);
     try {
-      const list = await getTransfers(statusFilter === 'all' ? undefined : statusFilter);
+      const effectiveStateId = user?.role === 'state_officer' ? user.scope_id : undefined;
+      const list = await getTransfers({
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        state_id: effectiveStateId,
+      });
       setTransfers(list);
 
       if (list && list.length > 0) {
@@ -71,7 +77,7 @@ export const ResourceTransferTracking: React.FC<ResourceTransferTrackingProps> =
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, transferId]);
+  }, [statusFilter, transferId, user?.role, user?.scope_id]);
 
   useEffect(() => {
     loadTransfers();
@@ -147,14 +153,14 @@ export const ResourceTransferTracking: React.FC<ResourceTransferTrackingProps> =
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-secondary"></span>
             <span className="text-[11px] font-mono uppercase tracking-widest text-secondary font-bold">
-              National Logistics Dispatch Console
+              {user?.role === 'state_officer' ? `${user.scope_id} Logistics Dispatch Console` : 'National Logistics Dispatch Console'}
             </span>
             <span className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-slate-700 font-mono text-[10px]">
               SYS-PIPELINE: ACTIVE
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Inter-District Resource Transfer Tracking
+            {user?.role === 'state_officer' ? `${user.scope_id} Inter-District Resource Transfer Tracking` : 'Inter-District Resource Transfer Tracking'}
           </h2>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 font-mono">
             <span><strong className="text-slate-900">{transfers.length}</strong> Total Transfers</span>
@@ -425,7 +431,7 @@ export const ResourceTransferTracking: React.FC<ResourceTransferTrackingProps> =
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-slate-700" />
                 <h4 className="text-xs font-bold uppercase tracking-wide text-slate-900">
-                  National Dispatch Pipeline Ledger ({transfers.length} Records)
+                  {user?.role === 'state_officer' ? `${user.scope_id} Dispatch Pipeline Ledger (${transfers.length} Records)` : `National Dispatch Pipeline Ledger (${transfers.length} Records)`}
                 </h4>
               </div>
               <span className="text-xs text-slate-500">Click any row to display live transit telemetry</span>

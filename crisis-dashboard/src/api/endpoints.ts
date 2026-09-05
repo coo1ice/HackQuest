@@ -86,10 +86,14 @@ export async function updateAlertStatus(
 
 // 4. Redistribution Recommendations & Decisions
 export async function getRedistributionRecommendations(
-  status?: 'pending' | 'approved' | 'rejected'
+  status?: 'pending' | 'approved' | 'rejected',
+  state_id?: string
 ): Promise<RedistributionRecommendationResponse[]> {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  return apiClient<RedistributionRecommendationResponse[]>(`/redistribution/recommendations${qs}`);
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  if (state_id) params.append('state_id', state_id);
+  const qs = params.toString();
+  return apiClient<RedistributionRecommendationResponse[]>(`/redistribution/recommendations${qs ? `?${qs}` : ''}`);
 }
 
 export async function getRedistributionDetail(id: number): Promise<RedistributionRecommendationResponse> {
@@ -115,9 +119,21 @@ export async function rejectRedistribution(
 }
 
 // 5. Transfer Tracking & Logistics
-export async function getTransfers(status?: 'approved' | 'dispatched' | 'received'): Promise<TransferResponse[]> {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  return apiClient<TransferResponse[]>(`/transfers${qs}`);
+export async function getTransfers(
+  params?: {
+    status?: 'approved' | 'dispatched' | 'received';
+    state_id?: string;
+  } | 'approved' | 'dispatched' | 'received'
+): Promise<TransferResponse[]> {
+  const query = new URLSearchParams();
+  if (typeof params === 'string') {
+    query.append('status', params);
+  } else if (params) {
+    if (params.status) query.append('status', params.status);
+    if (params.state_id) query.append('state_id', params.state_id);
+  }
+  const qs = query.toString();
+  return apiClient<TransferResponse[]>(`/transfers${qs ? `?${qs}` : ''}`);
 }
 
 export async function getTransferDetail(id: number): Promise<TransferResponse> {
