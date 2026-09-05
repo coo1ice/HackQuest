@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from datetime import datetime
 from app.database import get_db
 from app.models.alert import Alert
@@ -8,7 +8,7 @@ from app.models.phc import PHC
 from app.schemas.alert import AlertResponse
 from app.services import audit_service
 from app.api.deps import get_current_user
-from app.models.user import User
+from app.models.user import User, UserRoleEnum
 from typing import List, Optional
 
 router = APIRouter(prefix="/alerts", tags=["Act & Alerts"])
@@ -16,19 +16,40 @@ router = APIRouter(prefix="/alerts", tags=["Act & Alerts"])
 @router.get("", response_model=List[AlertResponse])
 async def list_alerts(
     severity: Optional[str] = Query(None, description="Filter by low, medium, high, critical"),
+    state_id: Optional[str] = Query(None, description="Filter by state code, e.g. INMP, INBR"),
+    district_id: Optional[str] = Query(None, description="Filter by district"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return active health resource alerts sorted by urgency and severity."""
-    q = select(Alert).order_by(desc(Alert.created_at))
-    if severity:
-        q = q.where(Alert.severity == severity)
+    """Return active health resource alerts sorted by urgency with role-based jurisdiction filtering."""
+    q = select(Alert, PHC).join(PHC, Alert.phc_id == PHC.id).order_by(desc(Alert.created_at))
+
+    # RBAC jurisdiction enforcement
+    if current_user.role == UserRoleEnum.STATE_OFFICER:
+        # A state officer only sees alerts within their designated state (e.g. INMP)
+        q = q.where(PHC.state_id == current_user.scope_id)
+    elif current_user.role == UserRoleEnum.DISTRICT_OFFICER:
+        # A district officer only sees alerts in their district
+        q = q.where(PHC.district_id == current_user.scope_id)
+    elif current_user.role == UserRoleEnum.PHC_STAFF:
+        # A PHC nurse or medical officer only sees alerts for their facility
+        q = q.where(Alert.phc_id == current_user.scope_id)
+    else:
+        # National admin can filter by state_id or district_id
+        if state_id and state_id != "all":
+            q = q.where(PHC.state_id == state_id)
+        if district_id and district_id != "all":
+            q = q.where(PHC.district_id == district_id)
+
+    if severity and severity != "all":
+        # Case-insensitive comparison of severity
+        q = q.where(func.lower(func.cast(Alert.severity, func.text)).like(f"%{severity.lower()}%"))
+
     res = await db.execute(q)
-    alerts = res.scalars().all()
+    rows = res.all()
 
     responses = []
-    for a in alerts:
-        phc = await db.get(PHC, a.phc_id)
+    for a, phc in rows:
         responses.append(
             AlertResponse(
                 id=a.id,
@@ -49,13 +70,29 @@ async def list_alerts(
 
 @router.get("/summary")
 async def alerts_summary(
+    state_id: Optional[str] = Query(None),
+    district_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return aggregate statistics of active alerts."""
-    q = select(Alert)
+    """Return aggregate statistics of active alerts scoped to officer jurisdiction."""
+    q = select(Alert, PHC).join(PHC, Alert.phc_id == PHC.id)
+
+    if current_user.role == UserRoleEnum.STATE_OFFICER:
+        q = q.where(PHC.state_id == current_user.scope_id)
+    elif current_user.role == UserRoleEnum.DISTRICT_OFFICER:
+        q = q.where(PHC.district_id == current_user.scope_id)
+    elif current_user.role == UserRoleEnum.PHC_STAFF:
+        q = q.where(Alert.phc_id == current_user.scope_id)
+    else:
+        if state_id and state_id != "all":
+            q = q.where(PHC.state_id == state_id)
+        if district_id and district_id != "all":
+            q = q.where(PHC.district_id == district_id)
+
     res = await db.execute(q)
-    alerts = res.scalars().all()
+    rows = res.all()
+    alerts = [a for a, _ in rows]
 
     total = len(alerts)
     critical = sum(1 for a in alerts if str(getattr(a.severity, "value", a.severity)).lower() == "critical")

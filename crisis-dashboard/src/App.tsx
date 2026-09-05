@@ -43,7 +43,20 @@ function DashboardContent() {
   };
 
   const [activePage, setActivePage] = useState<PageId>(getInitialPage);
-  const [selectedStateId, setSelectedStateId] = useState<string>('INBR');
+  const [selectedStateId, setSelectedStateId] = useState<string>(() => {
+    if (user?.role === 'state_officer' && user.scope_id && STATE_DATASET[user.scope_id]) {
+      return user.scope_id;
+    }
+    return 'INBR';
+  });
+
+  // Automatically sync jurisdiction state when officer logs in
+  useEffect(() => {
+    if (user?.role === 'state_officer' && user.scope_id && STATE_DATASET[user.scope_id]) {
+      setSelectedStateId(user.scope_id);
+    }
+  }, [user]);
+
   const [hoveredStateId, setHoveredStateId] = useState<string | null>(null);
   const [inspectingState, setInspectingState] = useState<StateCrisisData | null>(null);
 

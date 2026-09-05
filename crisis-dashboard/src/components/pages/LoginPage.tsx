@@ -20,6 +20,11 @@ const PRESET_ACCOUNTS = [
     scope: 'Bihar State Command (INBR)',
   },
   {
+    username: 'officer_inmp',
+    roleLabel: 'State Surveillance Officer',
+    scope: 'Madhya Pradesh State Command (INMP)',
+  },
+  {
     username: 'officer_inmh',
     roleLabel: 'State Surveillance Officer',
     scope: 'Maharashtra State Command (INMH)',

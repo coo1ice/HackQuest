@@ -55,19 +55,24 @@ export async function getDistrictPhcs(districtId: string): Promise<DistrictDetai
 export async function getAlerts(params?: {
   severity?: string;
   status?: string;
+  state_id?: string;
   district_id?: string;
 }): Promise<AlertResponse[]> {
   const query = new URLSearchParams();
   if (params?.severity && params.severity !== 'all') query.set('severity', params.severity);
   if (params?.status && params.status !== 'all') query.set('status', params.status);
-  if (params?.district_id) query.set('district_id', params.district_id);
+  if (params?.state_id && params.state_id !== 'all') query.set('state_id', params.state_id);
+  if (params?.district_id && params.district_id !== 'all') query.set('district_id', params.district_id);
 
   const qs = query.toString();
   return apiClient<AlertResponse[]>(`/alerts${qs ? `?${qs}` : ''}`);
 }
 
-export async function getAlertsSummary(): Promise<AlertsSummaryResponse> {
-  return apiClient<AlertsSummaryResponse>('/alerts/summary');
+export async function getAlertsSummary(params?: { state_id?: string }): Promise<AlertsSummaryResponse> {
+  const query = new URLSearchParams();
+  if (params?.state_id && params.state_id !== 'all') query.set('state_id', params.state_id);
+  const qs = query.toString();
+  return apiClient<AlertsSummaryResponse>(`/alerts/summary${qs ? `?${qs}` : ''}`);
 }
 
 export async function updateAlertStatus(

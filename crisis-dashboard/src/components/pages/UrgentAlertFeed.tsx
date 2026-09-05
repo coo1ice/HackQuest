@@ -16,41 +16,67 @@ import {
   Truck,
 } from 'lucide-react';
 
+import { useAuth } from '../../context/AuthContext';
+import { STATE_DATASET } from '../../data/stateData';
+
 interface UrgentAlertFeedProps {
   onNavigate: (page: PageId, options?: { stateId?: string; districtName?: string; facilityName?: string; directiveId?: number }) => void;
 }
 
 export const UrgentAlertFeed: React.FC<UrgentAlertFeedProps> = ({ onNavigate }) => {
+  const { user } = useAuth();
+  const isStateOfficer = user?.role === 'state_officer';
+  const officerStateCode = isStateOfficer && user?.scope_id ? user.scope_id : undefined;
+  const officerStateName = officerStateCode ? (STATE_DATASET[officerStateCode]?.name || officerStateCode) : undefined;
+
   const [alerts, setAlerts] = useState<AlertResponse[]>([]);
   const [summary, setSummary] = useState<AlertsSummaryResponse | null>(null);
   const [severityFilter, setSeverityFilter] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'acknowledged'>('active');
+
+  // Scope filter: State officer defaults strictly to their jurisdiction
+  const [scopeFilter, setScopeFilter] = useState<'jurisdiction' | 'all'>(isStateOfficer ? 'jurisdiction' : 'all');
+  const [selectedStateFilter, setSelectedStateFilter] = useState<string>(officerStateCode || 'all');
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(30);
   const [isUpdatingId, setIsUpdatingId] = useState<number | null>(null);
 
+  // Sync state filter if officer changes
+  useEffect(() => {
+    if (officerStateCode) {
+      setSelectedStateFilter(officerStateCode);
+      setScopeFilter('jurisdiction');
+    }
+  }, [officerStateCode]);
+
   const loadAlerts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+
+    const activeStateId = isStateOfficer
+      ? (scopeFilter === 'jurisdiction' ? officerStateCode : undefined)
+      : (selectedStateFilter !== 'all' ? selectedStateFilter : undefined);
+
     try {
       const [alertsRes, summaryRes] = await Promise.all([
         getAlerts({
           severity: severityFilter === 'all' ? undefined : severityFilter,
           status: statusFilter === 'all' ? undefined : statusFilter,
+          state_id: activeStateId,
         }),
-        getAlertsSummary(),
+        getAlertsSummary({ state_id: activeStateId }),
       ]);
       setAlerts(alertsRes);
       setSummary(summaryRes);
       setCountdown(30);
     } catch (err: any) {
-      setError(err?.message || 'Unable to retrieve real-time alerts from the national surveillance feed.');
+      setError(err?.message || 'Unable to retrieve real-time alerts from the surveillance feed.');
     } finally {
       setIsLoading(false);
     }
-  }, [severityFilter, statusFilter]);
+  }, [severityFilter, statusFilter, isStateOfficer, scopeFilter, officerStateCode, selectedStateFilter]);
 
   useEffect(() => {
     loadAlerts();
@@ -97,10 +123,12 @@ export const UrgentAlertFeed: React.FC<UrgentAlertFeedProps> = ({ onNavigate }) 
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 bg-error rounded-full animate-pulse"></span>
               <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                National Urgent Alert Feed
+                {isStateOfficer
+                  ? `${officerStateName || officerStateCode} State Urgent Alert Feed`
+                  : 'National Urgent Alert Feed'}
               </h2>
-              <span className="bg-black text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
-                Surveillance Grid Active
+              <span className="bg-black text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider font-mono">
+                {isStateOfficer ? `COMMAND: ${officerStateCode}` : 'APEX NATIONAL GRID'}
               </span>
             </div>
 
@@ -117,12 +145,52 @@ export const UrgentAlertFeed: React.FC<UrgentAlertFeedProps> = ({ onNavigate }) 
               <span>•</span>
               <span className="flex items-center gap-1 text-secondary font-medium">
                 <CheckCircle2 className="w-4 h-4 text-secondary" />
-                {totalActive} Total Monitored Incidents
+                {totalActive} {isStateOfficer && scopeFilter === 'jurisdiction' ? `${officerStateName} Incidents` : 'Total Monitored Incidents'}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start lg:self-center">
+          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
+            {/* Jurisdiction Scope Switcher */}
+            {isStateOfficer ? (
+              <div className="flex items-center gap-1 bg-white border border-slate-300 p-0.5 text-xs shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('jurisdiction')}
+                  className={`px-3 py-1 font-semibold transition-colors cursor-pointer ${
+                    scopeFilter === 'jurisdiction' ? 'bg-black text-white' : 'text-slate-700 hover:text-slate-950'
+                  }`}
+                >
+                  My State ({officerStateName})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('all')}
+                  className={`px-3 py-1 font-semibold transition-colors cursor-pointer ${
+                    scopeFilter === 'all' ? 'bg-black text-white' : 'text-slate-700 hover:text-slate-950'
+                  }`}
+                >
+                  All-India Directives
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-white border border-slate-300 px-2.5 py-1 text-xs shadow-2xs">
+                <span className="text-[11px] text-slate-500 uppercase font-semibold">Jurisdiction:</span>
+                <select
+                  value={selectedStateFilter}
+                  onChange={(e) => setSelectedStateFilter(e.target.value)}
+                  className="bg-transparent text-xs text-slate-800 font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="all">All 36 States &amp; UTs</option>
+                  {Object.values(STATE_DATASET).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 bg-white border border-slate-300 px-3 py-1.5 shadow-2xs">
               <span className="w-2 h-2 rounded-full bg-secondary"></span>
               <span className="text-xs text-slate-800">
