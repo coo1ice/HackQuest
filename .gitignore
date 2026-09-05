@@ -40,6 +40,25 @@ lerna-debug.log*
 *.sln
 *.sw?
 
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+venv/
+ENV/
+env/
+*.sqlite
+*.sqlite3
+*.db
+.pytest_cache/
+backend/.pytest_cache/
+ml/models/
+backend/ml/models/
+
 # Raw HTML Stitch export mock folders (untracked)
 emergency_redistribution_approval/
 national_health_resource_operations/
