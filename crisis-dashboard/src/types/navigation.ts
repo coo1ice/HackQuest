@@ -4,7 +4,8 @@ export type PageId =
   | 'urgent-alert-feed'
   | 'emergency-redistribution'
   | 'inter-district-transfer-tracking'
-  | 'login';
+  | 'login'
+  | 'register';
 
 export interface NavigationContext {
   page: PageId;

@@ -12,6 +12,7 @@ import { UrgentAlertFeed } from './components/pages/UrgentAlertFeed';
 import { EmergencyRedistribution } from './components/pages/EmergencyRedistribution';
 import { ResourceTransferTracking } from './components/pages/ResourceTransferTracking';
 import { LoginPage } from './components/pages/LoginPage';
+import { RegisterPage } from './components/pages/RegisterPage';
 import { LoadingState } from './components/common/LoadingState';
 import { ErrorState } from './components/common/ErrorState';
 import { RestrictedScreen } from './components/common/RestrictedScreen';
@@ -26,7 +27,22 @@ function DashboardContent() {
   const { user, isEmergencyOverride } = useAuth();
   const isAuthorizedForRedistribution = isEmergencyOverride || (!!user && user.role !== 'phc_staff');
 
-  const [activePage, setActivePage] = useState<PageId>('national-overview');
+  const getInitialPage = (): PageId => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '');
+      if (['login', 'register', 'national-overview', 'state-district-drill-down', 'urgent-alert-feed', 'emergency-redistribution', 'inter-district-transfer-tracking'].includes(hash)) {
+        return hash as PageId;
+      }
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get('page');
+      if (p && ['login', 'register', 'national-overview', 'state-district-drill-down', 'urgent-alert-feed', 'emergency-redistribution', 'inter-district-transfer-tracking'].includes(p)) {
+        return p as PageId;
+      }
+    }
+    return 'national-overview';
+  };
+
+  const [activePage, setActivePage] = useState<PageId>(getInitialPage);
   const [selectedStateId, setSelectedStateId] = useState<string>('INBR');
   const [hoveredStateId, setHoveredStateId] = useState<string | null>(null);
   const [inspectingState, setInspectingState] = useState<StateCrisisData | null>(null);
@@ -131,9 +147,24 @@ function DashboardContent() {
     if (options?.transferId !== undefined) {
       setTargetTransferId(options.transferId);
     }
+    if (typeof window !== 'undefined') {
+      window.location.hash = page;
+    }
     setActivePage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Sync with browser hash navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '') as PageId;
+      if (['login', 'register', 'national-overview', 'state-district-drill-down', 'urgent-alert-feed', 'emergency-redistribution', 'inter-district-transfer-tracking'].includes(hash)) {
+        setActivePage(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const handleSelectState = (stateId: string) => {
     if (STATE_DATASET[stateId]) {
@@ -179,7 +210,44 @@ function DashboardContent() {
           activeTransferCount={activeTransferCount}
         />
         <main className="flex-1 w-full max-w-[1780px] mx-auto p-4 sm:p-6 pt-28 sm:pt-28 flex flex-col items-center justify-center">
-          <LoginPage onLoginSuccess={(target) => handleNavigate(target || 'national-overview')} />
+          <LoginPage
+            onLoginSuccess={(target) => handleNavigate(target || 'national-overview')}
+            onNavigate={handleNavigate}
+          />
+        </main>
+        <footer className="w-full bg-white border-t border-slate-300 py-3 px-4 sm:px-6 mt-auto">
+          <div className="max-w-[1780px] mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+            <div>
+              Official Portal of MoHFW, Government of India • National Health Resource Monitoring Cell
+            </div>
+            <div className="flex items-center gap-4 font-mono text-[11px]">
+              <span>BUILD v4.19.8-PROD</span>
+              <span>NIC Node: DL-COMMAND-01</span>
+              <span className="text-slate-700 font-semibold">SECURITY: CONFIDENTIAL-OPS</span>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  // If user is on register page
+  if (activePage === 'register') {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col text-slate-900 selection:bg-slate-800 selection:text-white">
+        <Header
+          activePage="register"
+          onNavigate={(p) => handleNavigate(p)}
+          onEmergencyOverride={() => handleNavigate('urgent-alert-feed')}
+          lastSyncTime={lastSyncTime}
+          urgentAlertCount={urgentAlertCount}
+          activeTransferCount={activeTransferCount}
+        />
+        <main className="flex-1 w-full max-w-[1780px] mx-auto p-4 sm:p-6 pt-28 sm:pt-28 flex flex-col items-center justify-center">
+          <RegisterPage
+            onRegisterSuccess={() => handleNavigate('national-overview')}
+            onNavigate={handleNavigate}
+          />
         </main>
         <footer className="w-full bg-white border-t border-slate-300 py-3 px-4 sm:px-6 mt-auto">
           <div className="max-w-[1780px] mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">

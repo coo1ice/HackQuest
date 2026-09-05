@@ -45,6 +45,12 @@ export const Header: React.FC<HeaderProps> = ({
       badge: activeTransferCount > 0 ? String(activeTransferCount) : undefined,
       badgeColor: 'bg-secondary text-white',
     },
+    {
+      id: 'login',
+      label: isAuthenticated && user ? `Officer: ${user.username}` : 'Officer Sign In',
+      badge: isAuthenticated ? 'ONLINE' : 'PORTAL',
+      badgeColor: isAuthenticated ? 'bg-secondary text-white' : 'bg-slate-700 text-white',
+    },
   ];
 
   const getRoleDisplayName = (role?: string) => {
@@ -127,22 +133,34 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={logout}
+                  onClick={() => {
+                    logout();
+                    onNavigate('login');
+                  }}
                   className="ml-1 p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-300 transition-colors cursor-pointer"
-                  title="Sign out"
+                  title="Sign out & switch account"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => onNavigate('login')}
-                className="px-3 py-1.5 bg-black hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Officer Sign In</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('login')}
+                  className="px-3 py-1.5 bg-black hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Officer Sign In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('register')}
+                  className="hidden sm:flex px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-xs font-semibold items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <span>Register</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

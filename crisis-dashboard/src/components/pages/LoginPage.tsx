@@ -5,6 +5,7 @@ import type { PageId } from '../../types/navigation';
 
 interface LoginPageProps {
   onLoginSuccess: (targetPage?: PageId) => void;
+  onNavigate?: (page: PageId) => void;
 }
 
 const PRESET_ACCOUNTS = [
@@ -16,7 +17,12 @@ const PRESET_ACCOUNTS = [
   {
     username: 'bihar_officer',
     roleLabel: 'State Surveillance Officer',
-    scope: 'Bihar State Command',
+    scope: 'Bihar State Command (INBR)',
+  },
+  {
+    username: 'officer_inmh',
+    roleLabel: 'State Surveillance Officer',
+    scope: 'Maharashtra State Command (INMH)',
   },
   {
     username: 'muz_officer',
@@ -30,7 +36,7 @@ const PRESET_ACCOUNTS = [
   },
 ];
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigate }) => {
   const { login, isLoading, error, clearError } = useAuth();
   const [username, setUsername] = useState<string>('admin');
   const [password, setPassword] = useState<string>('password123');
@@ -167,6 +173,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               );
             })}
           </div>
+        </div>
+
+        {/* Portal Switching Actions */}
+        <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('register')}
+              className="text-slate-800 hover:text-slate-950 font-semibold underline cursor-pointer"
+            >
+              Enroll as Authorized Official (Register Account) &rarr;
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onLoginSuccess('national-overview')}
+            className="text-slate-500 hover:text-slate-800 cursor-pointer"
+          >
+            Proceed in Observer Mode (Read-only)
+          </button>
         </div>
       </div>
     </div>

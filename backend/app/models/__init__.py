@@ -19,6 +19,8 @@ from app.models.audit_log import AuditLogEntry
 from app.models.user import User
 from app.models.model_version import ModelVersion
 from app.models.outcome import Outcome
+from app.models.state import State
+from app.models.district import District
 
 __all__ = [
     "StaffStatusEnum",
@@ -27,6 +29,8 @@ __all__ = [
     "TransferStatusEnum",
     "UserRoleEnum",
     "ModelTypeEnum",
+    "State",
+    "District",
     "PHC",
     "StockRecord",
     "BedRecord",

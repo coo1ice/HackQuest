@@ -26,6 +26,18 @@ export async function getCurrentUser(): Promise<UserResponse> {
   return apiClient<UserResponse>('/auth/me');
 }
 
+export async function registerUser(payload: {
+  username: string;
+  password: string;
+  role: 'national_admin' | 'state_officer' | 'district_officer' | 'phc_staff';
+  scope_id: string;
+}): Promise<UserResponse> {
+  return apiClient<UserResponse>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 // 2. Visibility & Overview
 export async function getNationalOverview(): Promise<NationalOverviewResponse> {
   return apiClient<NationalOverviewResponse>('/national/overview');
