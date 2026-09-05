@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production / build artifacts
+dist/
+dist-ssr/
+*/dist/
+build/
+
+# Package archives & large zip files
+*.zip
+*.tar.gz
+*.tgz
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment and local files
+.env
+.env.local
+.env.*.local
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Raw HTML Stitch export mock folders (untracked)
+emergency_redistribution_approval/
+national_health_resource_operations/
+national_resource_overview/
+real_time_alert_feed/
+resource_transfer_tracking/
+state_district_drill_down/
+crisis-dashboard/src/assets/dashboard_assets/
