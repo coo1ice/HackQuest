@@ -1,6 +1,6 @@
 import React from 'react';
 import type { PageId } from '../types/navigation';
-import { RefreshCw, UserCheck, LogOut, LogIn } from 'lucide-react';
+import { RefreshCw, UserCheck, LogOut, LogIn, Gavel } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
@@ -16,11 +16,18 @@ export const Header: React.FC<HeaderProps> = ({
   activePage,
   onNavigate,
   lastSyncTime,
-  onEmergencyOverride,
+  onEmergencyOverride: _onEmergencyOverride,
   urgentAlertCount = 4,
   activeTransferCount = 6,
 }) => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    logout,
+    isEmergencyOverride,
+    enableEmergencyOverride,
+    disableEmergencyOverride,
+  } = useAuth();
 
   const navItems: { id: PageId; label: string; badge?: string; badgeColor?: string }[] = [
     { id: 'national-overview', label: 'National Overview' },
@@ -168,15 +175,31 @@ export const Header: React.FC<HeaderProps> = ({
             })}
           </nav>
 
-          <div className="hidden xl:flex items-center gap-2">
-            <button
-              onClick={onEmergencyOverride}
-              className="text-[11px] font-mono bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2.5 py-1 text-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
-              title="Press ESC to quickly focus emergency triage"
-            >
-              <kbd className="font-bold bg-white px-1 border border-slate-300">ESC</kbd>
-              <span>Emergency Override Hotkey</span>
-            </button>
+          <div className="hidden lg:flex items-center gap-2">
+            {isEmergencyOverride ? (
+              <div className="flex items-center gap-1.5 bg-amber-500 text-white font-mono text-[11px] font-bold px-2.5 py-1 border border-amber-600 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span>OVERRIDE ACTIVE (NDMA SEC 38)</span>
+                <button
+                  type="button"
+                  onClick={disableEmergencyOverride}
+                  className="ml-1 px-1.5 py-0.2 bg-amber-700 hover:bg-amber-800 text-[10px] uppercase font-bold cursor-pointer transition-colors"
+                  title="Revoke emergency override"
+                >
+                  Revoke
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => enableEmergencyOverride('Header quick override')}
+                className="text-[11px] font-mono bg-slate-100 hover:bg-amber-50 hover:text-amber-900 border border-slate-300 hover:border-amber-400 px-2.5 py-1 text-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Invoke statutory emergency override under NDMA Sec 38"
+              >
+                <Gavel className="w-3.5 h-3.5 text-amber-700" />
+                <span>Emergency Override</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

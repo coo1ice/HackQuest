@@ -3,10 +3,15 @@ import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY, registerUnauthorizedHandler } from
 import { loginUser, getCurrentUser } from '../api/endpoints';
 import type { UserResponse } from '../api/types';
 
+export const OVERRIDE_STORAGE_KEY = 'nhrm_emergency_override';
+
 interface AuthContextType {
   user: UserResponse | null;
   token: string | null;
   isAuthenticated: boolean;
+  isEmergencyOverride: boolean;
+  enableEmergencyOverride: (reason?: string) => void;
+  disableEmergencyOverride: () => void;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
@@ -25,8 +30,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; onRequireLogin?
     const saved = localStorage.getItem(USER_STORAGE_KEY);
     return saved ? JSON.parse(saved) : null;
   });
+  const [isEmergencyOverride, setIsEmergencyOverride] = useState<boolean>(() => {
+    return sessionStorage.getItem(OVERRIDE_STORAGE_KEY) === 'true';
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const enableEmergencyOverride = useCallback((_reason?: string) => {
+    sessionStorage.setItem(OVERRIDE_STORAGE_KEY, 'true');
+    setIsEmergencyOverride(true);
+  }, []);
+
+  const disableEmergencyOverride = useCallback(() => {
+    sessionStorage.removeItem(OVERRIDE_STORAGE_KEY);
+    setIsEmergencyOverride(false);
+  }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
@@ -95,6 +113,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; onRequireLogin?
         user,
         token,
         isAuthenticated: !!token && !!user,
+        isEmergencyOverride,
+        enableEmergencyOverride,
+        disableEmergencyOverride,
         isLoading,
         login,
         logout,

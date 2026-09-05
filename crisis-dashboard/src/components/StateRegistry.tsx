@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { STATE_DATASET } from '../data/stateData';
 import { Search, ChevronRight } from 'lucide-react';
 import type { StateSummaryItem } from '../api/types';
+import { safeRound } from '../utils/formatters';
 
 interface StateRegistryProps {
   selectedStateId: string;
@@ -22,19 +23,23 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
 
   // Convert apiStates into registry items or fallback to STATE_DATASET
   const statesList = apiStates && apiStates.length > 0
-    ? apiStates.map((s, idx) => ({
-        id: s.state_id,
-        name: s.state_name,
-        urgencyRank: idx + 1,
-        statusCategory: s.status === 'critical' ? 'critical' : s.status === 'warning' ? 'warning' : 'normal',
-        statusBadge: s.status === 'critical' ? 'CRITICAL DEFICIT' : s.status === 'warning' ? 'ADEQUATE RESERVE' : 'NORMAL BUFFER',
-        stockHealth: `${Math.round(s.stock_health_score)}%`,
-        stockHealthPercent: Math.round(s.stock_health_score),
-        icuOccupancyPercent: Math.round(s.bed_occupancy_pct),
-        riskDistricts: s.critical_phcs_count,
-        totalDistricts: s.total_districts,
-        totalPhcs: s.total_phcs,
-      }))
+    ? apiStates.map((s, idx) => {
+        const stockScore = safeRound(s.stock_health_score ?? (s as any).health_score, 75);
+        const bedOcc = safeRound(s.bed_occupancy_pct, 68);
+        return {
+          id: s.state_id,
+          name: s.state_name || s.state_id,
+          urgencyRank: idx + 1,
+          statusCategory: s.status === 'critical' ? 'critical' : s.status === 'warning' ? 'warning' : 'normal',
+          statusBadge: s.status === 'critical' ? 'CRITICAL DEFICIT' : s.status === 'warning' ? 'ADEQUATE RESERVE' : 'NORMAL BUFFER',
+          stockHealth: `${stockScore}%`,
+          stockHealthPercent: stockScore,
+          icuOccupancyPercent: bedOcc,
+          riskDistricts: safeRound(s.critical_phcs_count ?? (s as any).districts_at_risk, 0),
+          totalDistricts: safeRound(s.total_districts, 4),
+          totalPhcs: safeRound(s.total_phcs, 12),
+        };
+      })
     : Object.values(STATE_DATASET);
 
   // Filter & Search logic

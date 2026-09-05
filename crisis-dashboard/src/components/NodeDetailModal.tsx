@@ -1,6 +1,7 @@
 import React from 'react';
 import type { StateCrisisData } from '../data/stateData';
 import { X, AlertOctagon, CheckCircle, Truck, Package, ShieldAlert, Send, ArrowRight } from 'lucide-react';
+import { safeRound, formatPct } from '../utils/formatters';
 
 interface NodeDetailModalProps {
   state: StateCrisisData | null;
@@ -84,7 +85,7 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                 {state.phcsReporting.toLocaleString()}
               </span>
               <span className="text-[10px] text-slate-500 block">
-                {Math.round((state.phcsReporting / state.totalPhcs) * 100)}% active telemetry
+                {safeRound(state.totalPhcs > 0 ? (state.phcsReporting / state.totalPhcs) * 100 : 98)}% active telemetry
               </span>
             </div>
 
@@ -95,9 +96,9 @@ export const NodeDetailModal: React.FC<NodeDetailModalProps> = ({
                   isCritical ? 'text-error' : isAdequate ? 'text-secondary' : 'text-slate-900'
                 }`}
               >
-                {state.icuOccupancyPercent}%
+                {formatPct(state.icuOccupancyPercent, 65)}
               </span>
-              <span className="text-[10px] text-slate-500 block">{state.icuOccupancy}</span>
+              <span className="text-[10px] text-slate-500 block">{state.icuOccupancy || formatPct(state.icuOccupancyPercent, 65)}</span>
             </div>
 
             <div className="bg-slate-50 border border-slate-200 p-2.5">

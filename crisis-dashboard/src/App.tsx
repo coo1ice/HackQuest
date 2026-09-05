@@ -14,7 +14,8 @@ import { ResourceTransferTracking } from './components/pages/ResourceTransferTra
 import { LoginPage } from './components/pages/LoginPage';
 import { LoadingState } from './components/common/LoadingState';
 import { ErrorState } from './components/common/ErrorState';
-import { AuthProvider } from './context/AuthContext';
+import { RestrictedScreen } from './components/common/RestrictedScreen';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { getNationalOverview, getAlertsSummary, getTransfers } from './api/endpoints';
 import type { NationalOverviewResponse } from './api/types';
 import { STATE_DATASET } from './data/stateData';
@@ -22,6 +23,8 @@ import type { StateCrisisData } from './data/stateData';
 import { Radio, Cpu, Layers } from 'lucide-react';
 
 function DashboardContent() {
+  const { user, isEmergencyOverride } = useAuth();
+  const isAuthorizedForRedistribution = isEmergencyOverride || (!!user && user.role !== 'phc_staff');
 
   const [activePage, setActivePage] = useState<PageId>('national-overview');
   const [selectedStateId, setSelectedStateId] = useState<string>('INBR');
@@ -225,7 +228,7 @@ function DashboardContent() {
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span className="flex items-center gap-1 text-secondary font-medium">
                   <Radio className="w-3.5 h-3.5 text-secondary animate-pulse" />
-                  {overview?.reporting_rate_pct != null
+                  {overview?.reporting_rate_pct != null && !isNaN(overview.reporting_rate_pct)
                     ? `${overview.reporting_rate_pct.toFixed(1)}% reporting telemetry`
                     : '99.1% reporting telemetry'}
                 </span>
@@ -368,11 +371,19 @@ function DashboardContent() {
 
         {/* PAGE 4: EMERGENCY REDISTRIBUTION */}
         {activePage === 'emergency-redistribution' && (
-          <EmergencyRedistribution
-            targetFacilityName={targetFacility}
-            directiveId={targetDirectiveId}
-            onNavigate={handleNavigate}
-          />
+          isAuthorizedForRedistribution ? (
+            <EmergencyRedistribution
+              targetFacilityName={targetFacility}
+              directiveId={targetDirectiveId}
+              onNavigate={handleNavigate}
+            />
+          ) : (
+            <RestrictedScreen
+              screenTitle="Emergency Redistribution Directives"
+              requiredRole="District Health Officer, State Surveillance Officer, or National Admin"
+              onNavigate={handleNavigate}
+            />
+          )
         )}
 
         {/* PAGE 5: INTER-DISTRICT TRANSFER TRACKING */}

@@ -1,6 +1,6 @@
-import React from 'react';
 import { Hospital, AlertTriangle, Bed, Truck } from 'lucide-react';
 import type { PageId } from '../types/navigation';
+import { safeNumber } from '../utils/formatters';
 
 interface KpiLedgerProps {
   onNavigate?: (page: PageId) => void;
@@ -15,11 +15,11 @@ interface KpiLedgerProps {
 }
 
 export const KpiLedger: React.FC<KpiLedgerProps> = ({ onNavigate, data }) => {
-  const totalPhcs = data?.totalPhcs ?? 31482;
-  const reportingRate = data?.reportingRatePct ?? 98.4;
-  const criticalCount = data?.criticalStatesCount ?? 4;
-  const bedOccupancy = data?.bedOccupancyPct ?? 76.4;
-  const inTransitCount = data?.inTransitTransfersCount ?? 38;
+  const totalPhcs = safeNumber(data?.totalPhcs, 31482);
+  const reportingRate = safeNumber(data?.reportingRatePct, 99.1);
+  const criticalCount = safeNumber(data?.criticalStatesCount, 5);
+  const bedOccupancy = safeNumber(data?.bedOccupancyPct, 74.6);
+  const inTransitCount = safeNumber(data?.inTransitTransfersCount, 6);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">

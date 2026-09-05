@@ -1,6 +1,7 @@
 import React from 'react';
 import type { StateCrisisData } from '../data/stateData';
 import { Truck, ExternalLink, ChevronRight } from 'lucide-react';
+import { safeNumber, formatPct } from '../utils/formatters';
 
 interface CommandPanelProps {
   state: StateCrisisData;
@@ -30,6 +31,9 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({ state, onOpenNode, o
     ? 'bg-secondary'
     : 'bg-slate-500';
 
+  const reportingCount = safeNumber(state.phcsReporting, 12);
+  const totalCount = safeNumber(state.totalPhcs, 12);
+
   return (
     <div
       id="gis-command-panel"
@@ -53,9 +57,9 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({ state, onOpenNode, o
       {/* Narrative Summary with Telemetry */}
       <p className="text-xs text-slate-600 leading-relaxed my-2.5">
         <strong className="text-slate-900 font-semibold tabular-nums">
-          {state.phcsReporting.toLocaleString()} PHCs reporting
+          {reportingCount.toLocaleString()} PHCs reporting
         </strong>{' '}
-        • {state.summary || `Live surveillance telemetry synchronized. ${state.riskDistricts} critical units reporting immediate deficits.`}
+        • {state.summary || `Live surveillance telemetry synchronized. ${safeNumber(state.riskDistricts, 0)} critical units reporting immediate deficits.`}
       </p>
 
       {/* Metrics Grid: PHCs Reporting, ICU Occupancy, Stock Runrate */}
@@ -63,21 +67,21 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({ state, onOpenNode, o
         <div className="bg-slate-50 border border-slate-200 p-2">
           <span className="text-[10px] text-slate-500 block uppercase font-medium">PHCs Reporting</span>
           <span className="text-xs font-bold text-slate-900 tabular-nums font-mono">
-            {state.phcsReporting.toLocaleString()} / {state.totalPhcs.toLocaleString()}
+            {reportingCount.toLocaleString()} / {totalCount.toLocaleString()}
           </span>
         </div>
 
         <div className="bg-slate-50 border border-slate-200 p-2">
           <span className="text-[10px] text-slate-500 block uppercase font-medium">Bed Occupancy</span>
           <span className={`text-xs font-bold tabular-nums font-mono ${statusTextStyle}`}>
-            {state.icuOccupancy || `${state.icuOccupancyPercent}%`}
+            {state.icuOccupancy || formatPct(state.icuOccupancyPercent, 65)}
           </span>
         </div>
 
         <div className="bg-slate-50 border border-slate-200 p-2 col-span-2 sm:col-span-1">
           <span className="text-[10px] text-slate-500 block uppercase font-medium">Stock Health</span>
           <span className={`text-xs font-bold tabular-nums font-mono ${statusTextStyle}`}>
-            {state.stockHealth || `${state.stockHealthPercent}%`}
+            {state.stockHealth || formatPct(state.stockHealthPercent, 75)}
           </span>
         </div>
       </div>

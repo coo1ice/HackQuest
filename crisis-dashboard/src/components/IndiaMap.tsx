@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { STATE_DATASET } from '../data/stateData';
 import { INDIA_MAP_FEATURES } from '../data/indiaMapPaths';
 import { Radio, Truck, Layers, Eye, EyeOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { formatPct } from '../utils/formatters';
 
 interface IndiaMapProps {
   selectedStateId: string;
@@ -54,7 +55,29 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
     return classes;
   };
 
-  const hoveredStateData = hoveredStateId ? STATE_DATASET[hoveredStateId] : null;
+  const hoveredStateData = hoveredStateId
+    ? STATE_DATASET[hoveredStateId] || {
+        id: hoveredStateId,
+        name: hoveredStateId,
+        commandName: `${hoveredStateId} State Command`,
+        status: statusMap?.[hoveredStateId] === 'critical' ? 'Critical Stockout' : 'Normal / Buffer Ready',
+        statusCategory: statusMap?.[hoveredStateId] === 'critical' ? 'critical' : 'normal',
+        statusBadge: statusMap?.[hoveredStateId] === 'critical' ? 'CRITICAL DEFICIT' : 'NORMAL BUFFER',
+        phcsReporting: 12,
+        totalPhcs: 12,
+        icuOccupancy: '65.0%',
+        icuOccupancyPercent: 65.0,
+        stockHealth: '78%',
+        stockHealthPercent: 78,
+        avgReserveRunrate: '14.0 Days',
+        riskDistricts: 0,
+        totalDistricts: 4,
+        summary: 'Standard territorial health resource monitoring active.',
+        logisticsStatus: 'Corridor Standby',
+        sso: 'Designated Surveillance Officer',
+        urgencyRank: 10,
+      }
+    : null;
 
   return (
     <div className="relative w-full h-full flex items-center justify-center p-2 select-none overflow-hidden">
@@ -168,7 +191,7 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
             </div>
             <div className="bg-slate-800/80 p-1.5 rounded">
               <span className="text-[10px] text-slate-400 block">ICU Load</span>
-              <span className="font-bold text-white tabular-nums">{hoveredStateData.icuOccupancyPercent}%</span>
+              <span className="font-bold text-white tabular-nums">{formatPct(hoveredStateData.icuOccupancyPercent, 65)}</span>
             </div>
           </div>
 

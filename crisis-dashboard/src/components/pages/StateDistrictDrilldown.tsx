@@ -7,14 +7,15 @@ import { LoadingState } from '../common/LoadingState';
 import { EmptyState } from '../common/EmptyState';
 import { ErrorState } from '../common/ErrorState';
 import {
-  ChevronRight,
   AlertTriangle,
-  RefreshCw,
-  FileSpreadsheet,
-  ArrowUpDown,
+  ChevronRight,
   Phone,
+  FileSpreadsheet,
+  RefreshCw,
   Building2,
+  ArrowUpDown,
 } from 'lucide-react';
+import { safeRound } from '../../utils/formatters';
 
 interface StateDistrictDrilldownProps {
   selectedStateId?: string;
@@ -173,8 +174,8 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
   const totalDistricts = stateOverview?.total_districts || fallbackStateData.totalDistricts;
   const totalPhcs = stateOverview?.total_phcs || fallbackStateData.totalPhcs;
   const activeAlerts = stateOverview?.active_alerts_count || 4;
-  const stockHealth = stateOverview ? Math.round(stateOverview.stock_health_score) : 42;
-  const compositeDeficit = 100 - stockHealth;
+  const stockHealth = safeRound(stateOverview?.stock_health_score ?? (stateOverview as any)?.health_score, 72);
+  const compositeDeficit = Math.max(0, 100 - stockHealth);
 
   const districtsList = stateOverview?.districts || [
     { district_id: 'Muzaffarpur', district_name: 'Muzaffarpur', total_phcs: 34, critical_phcs_count: 6, avg_stockout_risk: 0.72, bed_occupancy_pct: 94, status: 'critical' },
@@ -495,7 +496,7 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
                     ? Math.min(...facility.stocks.map((s) => s.days_of_stock_left))
                     : 14;
                   const isCriticalStock = stockDays < 3;
-                  const bedOccupancy = Math.round(facility.bed_occupancy_pct);
+                  const bedOccupancy = safeRound(facility.bed_occupancy_pct ?? (facility as any).bed_occupancy_percent, 65);
 
                   return (
                     <tr key={facility.id} className="hover:bg-slate-50 transition-colors">
