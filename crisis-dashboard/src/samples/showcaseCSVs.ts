@@ -23,6 +23,25 @@ export interface ShowcaseDataset {
 
 export const SHOWCASE_DATASETS: ShowcaseDataset[] = [
   {
+    id: 'mp-crisis-stockout',
+    name: 'MP Crisis Stockout Telemetry (Generates Active Alert in DB)',
+    filename: 'sample_mp_crisis_stockout.csv',
+    category: 'stock',
+    targetRole: 'State Officer (MP - officer_inmp) or National Admin',
+    authorizedScope: 'INMP (Madhya Pradesh)',
+    description: 'Depletes Antivenom to 2 vials and Oxygen to 3 cylinders at Bhopal PHC. Triggers a CRITICAL alert and inter-district redistribution directive in DB to test live upload.',
+    badge: {
+      label: '🚨 CAUSES ISSUE TO ADDRESS',
+      variant: 'warning',
+    },
+    csvContent: `phc_id,medicine_id,quantity,unit,expiry_date
+PHC-MP-D1-P01,MED-ANTIVENOM,2,Vials,2027-04-30
+PHC-MP-D1-P01,MED-OXYGEN-D,3,Cylinders,2027-02-15
+PHC-MP-D1-P02,MED-IV-NACL,5,Bottles,2026-11-30
+PHC-MP-D2-P01,MED-ANTIVENOM,180,Vials,2027-05-15
+PHC-MP-D2-P02,MED-OXYGEN-D,45,Cylinders,2027-01-20`,
+  },
+  {
     id: 'mp-state-stock',
     name: 'Madhya Pradesh State Stock (Valid for INMP)',
     filename: 'sample_madhya_pradesh_stock.csv',

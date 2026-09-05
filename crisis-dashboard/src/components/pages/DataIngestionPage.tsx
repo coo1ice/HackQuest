@@ -285,35 +285,103 @@ export const DataIngestionPage: React.FC<DataIngestionPageProps> = ({ onNavigate
 
       {/* Success Banner if committed */}
       {commitSuccess && (
-        <div className="bg-emerald-50 border-2 border-emerald-600 p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-8 h-8 text-emerald-700 shrink-0" />
-            <div>
-              <h3 className="text-base font-bold text-emerald-900">
-                Telemetry Successfully Authorized &amp; Ingested!
-              </h3>
-              <p className="text-xs text-emerald-800 mt-0.5">
-                <strong>{commitSuccess.committed_records_count}</strong> {commitSuccess.category} records were verified and committed into the PostgreSQL operational registry.
-              </p>
+        <div className="flex flex-col gap-3">
+          <div className="bg-emerald-50 border-2 border-emerald-600 p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-8 h-8 text-emerald-700 shrink-0" />
+              <div>
+                <h3 className="text-base font-bold text-emerald-900">
+                  Telemetry Successfully Authorized &amp; Ingested to Database!
+                </h3>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  <strong>{commitSuccess.committed_records_count}</strong> {commitSuccess.category} records were verified and written into the PostgreSQL operational registry.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-900 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
+              >
+                Upload Another Spreadsheet
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('state-district-drill-down', { stateId: user?.role === 'state_officer' ? user.scope_id : 'INMP' })}
+                className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <span>View State Drill-Down</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-900 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-            >
-              Upload Another Spreadsheet
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('state-district-drill-down')}
-              className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <span>View Drill-Down</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+
+          {/* If Ingestion Caused Issues to Address in DB (e.g. Critical Stockout Alert) */}
+          {commitSuccess.alerts_created && commitSuccess.alerts_created.length > 0 && (
+            <div className="bg-red-50 border-2 border-red-600 p-5 shadow-sm flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="w-7 h-7 text-red-700 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono uppercase bg-red-800 text-white px-1.5 py-0.5 font-bold">
+                        Live Database Impact Verified
+                      </span>
+                      <span className="text-xs font-mono font-bold text-red-900">
+                        {commitSuccess.alerts_created.length} Acute Operational Issues Generated in DB
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-red-950 mt-1">
+                      Critical Stock Depletion Detected from Uploaded Telemetry
+                    </h4>
+                    <p className="text-xs text-red-800 mt-0.5">
+                      The uploaded telemetry registered critically low reserves. The system has automatically logged active <strong>CRITICAL ALERTS</strong> and drafted an <strong>Inter-District Redistribution Directive</strong> in the database.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('urgent-alert-feed')}
+                    className="px-3 py-2 bg-red-800 hover:bg-red-900 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>Address in Alert Feed</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('emergency-redistribution')}
+                    className="px-3 py-2 bg-black hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <span>Emergency Redistribution</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* List of Created Issues */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2 border-t border-red-200">
+                {commitSuccess.alerts_created.map((al, idx) => (
+                  <div key={idx} className="bg-white border border-red-300 p-2.5 flex flex-col gap-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-red-700">{al.resource_type}</span>
+                      <span className="text-[9px] font-mono uppercase bg-red-100 text-red-900 font-bold px-1.5 py-0.2">
+                        {al.severity}
+                      </span>
+                    </div>
+                    <div className="font-semibold text-slate-900 text-[11px] truncate" title={al.facility_name}>
+                      {al.facility_name}
+                    </div>
+                    <div className="text-[11px] text-slate-600 font-mono">
+                      Stock: <strong className="text-red-700">{al.stock_remaining}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

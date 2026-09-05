@@ -177,6 +177,18 @@ export interface BulkUploadResponse {
   has_security_violations?: boolean;
   security_violations_count?: number;
   committed_records_count: number;
+  alerts_created_count?: number;
+  alerts_created?: Array<{
+    phc_id: string;
+    facility_name: string;
+    district_id?: string;
+    state_id?: string;
+    resource_type: string;
+    severity: string;
+    stock_remaining: string;
+    issue?: string;
+  }>;
+  recommendations_created?: Array<Record<string, any>>;
   preview_rows: Array<Record<string, any>>;
   columns_detected: string[];
   flagged_errors: Array<{ row: number; errors: string[] }>;
