@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, UploadFile, File, Form
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas.stock import StockRecordCreate, StockRecordResponse, SyncBatchRequest, SyncBatchResponse
@@ -101,3 +102,43 @@ async def sync_offline_batch(
         metadata=response.processed_counts,
     )
     return response
+
+@router.post("/bulk-upload", status_code=status.HTTP_200_OK)
+async def upload_bulk_file(
+    file: UploadFile = File(..., description="CSV or Excel (.xlsx) file containing PHC telemetry"),
+    category: Optional[str] = Form("auto", description="Category: auto, stock, beds, staff, or footfall"),
+    default_phc_id: Optional[str] = Form(None, description="Default PHC ID if not specified per row"),
+    dry_run: bool = Form(False, description="If true, only validates and previews rows without committing to DB"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Drag and drop bulk file upload for PHC telemetry.
+    Supports CSV and Excel (.xlsx) with instant validation ('Check it') when dry_run=True,
+    and database commitment ('Allow it') when dry_run=False.
+    """
+    content = await file.read()
+    result = await ingestion_service.process_bulk_file(
+        db=db,
+        file_bytes=content,
+        filename=file.filename or "upload.csv",
+        category=category,
+        default_phc_id=default_phc_id,
+        dry_run=dry_run,
+        current_user=current_user,
+    )
+
+    if not dry_run and result.get("committed_records_count", 0) > 0:
+        await audit_service.log_action(
+            db,
+            actor_id=current_user.username,
+            action="INGEST_BULK_UPLOAD",
+            target_id=file.filename or "spreadsheet",
+            metadata={
+                "category": result["category"],
+                "total_rows": result["total_rows"],
+                "committed_count": result["committed_records_count"],
+            },
+        )
+
+    return result

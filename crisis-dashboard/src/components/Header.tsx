@@ -46,6 +46,12 @@ export const Header: React.FC<HeaderProps> = ({
       badgeColor: 'bg-secondary text-white',
     },
     {
+      id: 'data-ingestion',
+      label: 'Data Ingestion (CSV/Excel)',
+      badge: 'UPLOAD',
+      badgeColor: 'bg-emerald-700 text-white',
+    },
+    {
       id: 'login',
       label: isAuthenticated && user ? `Officer: ${user.username}` : 'Officer Sign In',
       badge: isAuthenticated ? 'ONLINE' : 'PORTAL',

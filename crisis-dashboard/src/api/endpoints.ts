@@ -164,3 +164,40 @@ export async function logOutcome(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+// 6. PHC Bulk Telemetry Upload (CSV & Excel)
+export interface BulkUploadResponse {
+  status: 'validated' | 'committed';
+  dry_run: boolean;
+  filename: string;
+  category: 'stock' | 'beds' | 'staff' | 'footfall';
+  total_rows: number;
+  valid_rows_count: number;
+  flagged_rows_count: number;
+  has_security_violations?: boolean;
+  security_violations_count?: number;
+  committed_records_count: number;
+  preview_rows: Array<Record<string, any>>;
+  columns_detected: string[];
+  flagged_errors: Array<{ row: number; errors: string[] }>;
+  processed_at: string;
+}
+
+export async function uploadPHCTelemetryFile(params: {
+  file: File;
+  category?: string;
+  default_phc_id?: string;
+  dry_run?: boolean;
+}): Promise<BulkUploadResponse> {
+  const formData = new FormData();
+  formData.append('file', params.file);
+  if (params.category) formData.append('category', params.category);
+  if (params.default_phc_id) formData.append('default_phc_id', params.default_phc_id);
+  formData.append('dry_run', params.dry_run ? 'true' : 'false');
+
+  return apiClient<BulkUploadResponse>('/phc/bulk-upload', {
+    method: 'POST',
+    body: formData,
+  });
+}
+

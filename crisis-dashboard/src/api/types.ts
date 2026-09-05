@@ -114,6 +114,8 @@ export interface AlertResponse {
   action_recommended?: string;
   linked_recommendation_id?: number;
   status: 'active' | 'acknowledged' | 'resolved';
+  acknowledged_by?: string | null;
+  acknowledged_at?: string | null;
   created_at: string;
 }
 

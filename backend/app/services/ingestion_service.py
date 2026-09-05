@@ -135,3 +135,273 @@ async def sync_offline_batch(db: AsyncSession, phc_id: str, batch: SyncBatchRequ
         processed_counts=counts,
         synced_at=datetime.utcnow(),
     )
+
+import io
+import pandas as pd
+from typing import Dict, Any
+from app.models.user import User
+from app.models.enums import StaffStatusEnum, UserRoleEnum
+
+async def process_bulk_file(
+    db: AsyncSession,
+    file_bytes: bytes,
+    filename: str,
+    category: Optional[str] = "auto",
+    default_phc_id: Optional[str] = None,
+    dry_run: bool = False,
+    current_user: Optional[User] = None,
+) -> Dict[str, Any]:
+    """Parse, validate ('Check it') and ingest ('Allow it') CSV or Excel spreadsheet."""
+    lower_name = filename.lower()
+    try:
+        if lower_name.endswith(".xlsx") or lower_name.endswith(".xls"):
+            df = pd.read_excel(io.BytesIO(file_bytes), engine="openpyxl")
+        else:
+            try:
+                df = pd.read_csv(io.BytesIO(file_bytes), encoding="utf-8")
+            except UnicodeDecodeError:
+                df = pd.read_csv(io.BytesIO(file_bytes), encoding="latin-1")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not parse tabular spreadsheet: {str(exc)}",
+        )
+
+    if df.empty:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded spreadsheet contains zero data rows.",
+        )
+
+    # Normalize column names
+    df.columns = [str(c).strip().lower().replace(" ", "_").replace("-", "_") for c in df.columns]
+    col_set = set(df.columns)
+
+    # Auto-detect category
+    detected_cat = category or "auto"
+    if detected_cat == "auto":
+        if any(c in col_set for c in ["medicine_id", "medicine", "drug_id", "stock", "quantity", "qty"]):
+            detected_cat = "stock"
+        elif any(c in col_set for c in ["total_beds", "occupied_beds", "beds", "bed_occupancy"]):
+            detected_cat = "beds"
+        elif any(c in col_set for c in ["staff_id", "doctor", "nurse", "attendance"]):
+            detected_cat = "staff"
+        elif any(c in col_set for c in ["footfall", "patient_count", "patients", "opd"]):
+            detected_cat = "footfall"
+        else:
+            detected_cat = "stock"
+
+    # Pre-fetch all known PHCs to validate phc_id
+    res_phcs = await db.execute(select(PHC))
+    all_phcs = {p.id: p for p in res_phcs.scalars().all()}
+
+    valid_records = []
+    preview_rows = []
+    flagged_errors = []
+
+    for idx, row in df.iterrows():
+        row_num = idx + 1
+        row_dict = row.to_dict()
+        row_errors = []
+
+        target_phc = str(row_dict.get("phc_id", default_phc_id or "")).strip()
+        if not target_phc or target_phc.lower() == "nan":
+            target_phc = default_phc_id or ""
+
+        if not target_phc:
+            row_errors.append("Missing phc_id")
+        elif target_phc not in all_phcs:
+            row_errors.append(f"Unknown PHC ID '{target_phc}'")
+        elif current_user and current_user.role == UserRoleEnum.STATE_OFFICER:
+            phc_obj = all_phcs[target_phc]
+            if phc_obj.state_id != current_user.scope_id:
+                row_errors.append(f"Security Alert: PHC '{target_phc}' is in state '{phc_obj.state_id}', outside your authorized state jurisdiction ('{current_user.scope_id}'). State officers may only upload data for their designated state.")
+        elif current_user and current_user.role == UserRoleEnum.DISTRICT_OFFICER:
+            phc_obj = all_phcs[target_phc]
+            if phc_obj.district_id.lower() != current_user.scope_id.lower():
+                row_errors.append(f"Security Alert: PHC '{target_phc}' is in district '{phc_obj.district_id}', outside your district jurisdiction ('{current_user.scope_id}'). District officers may only upload data for their designated district.")
+        elif current_user and current_user.role == UserRoleEnum.PHC_STAFF:
+            if target_phc != current_user.scope_id:
+                row_errors.append(f"Security Alert: PHC '{target_phc}' is outside your designated health facility ('{current_user.scope_id}').")
+        # National Admin has all-India authorization to upload anywhere without restriction
+
+        # Category-specific validation
+        if detected_cat == "stock":
+            med_id = str(row_dict.get("medicine_id", row_dict.get("medicine", "MED-ANTIVENOM"))).strip().upper()
+            if not med_id or med_id == "NAN":
+                row_errors.append("Missing medicine_id")
+
+            try:
+                qty = float(row_dict.get("quantity", row_dict.get("qty", 0)))
+                if qty < 0:
+                    row_errors.append("Quantity cannot be negative")
+            except (ValueError, TypeError):
+                row_errors.append("Quantity must be a valid number")
+                qty = 0.0
+
+            unit = str(row_dict.get("unit", "Vials")).strip()
+            if unit == "nan":
+                unit = "Units"
+
+            exp_raw = row_dict.get("expiry_date", row_dict.get("expiry", None))
+            exp_date = None
+            if exp_raw and str(exp_raw) != "nan":
+                try:
+                    exp_date = pd.to_datetime(exp_raw).date()
+                except Exception:
+                    row_errors.append("Invalid expiry_date (use YYYY-MM-DD)")
+            else:
+                exp_date = (datetime.utcnow() + pd.Timedelta(days=180)).date()
+
+            preview_entry = {
+                "row": row_num,
+                "phc_id": target_phc,
+                "medicine_id": med_id,
+                "quantity": qty,
+                "unit": unit,
+                "expiry_date": str(exp_date) if exp_date else "N/A",
+                "valid": len(row_errors) == 0,
+                "errors": row_errors,
+            }
+            preview_rows.append(preview_entry)
+
+            if not row_errors:
+                valid_records.append(
+                    StockRecord(
+                        phc_id=target_phc,
+                        medicine_id=med_id,
+                        quantity=qty,
+                        unit=unit,
+                        expiry_date=exp_date,
+                        timestamp=datetime.utcnow(),
+                    )
+                )
+
+        elif detected_cat == "beds":
+            try:
+                total_b = int(row_dict.get("total_beds", row_dict.get("beds", 10)))
+                occupied_b = int(row_dict.get("occupied_beds", row_dict.get("occupied", 0)))
+                if total_b < 0 or occupied_b < 0:
+                    row_errors.append("Bed counts cannot be negative")
+                if occupied_b > total_b:
+                    row_errors.append("Occupied beds cannot exceed total beds")
+            except (ValueError, TypeError):
+                row_errors.append("Total and occupied beds must be integers")
+                total_b, occupied_b = 10, 0
+
+            preview_entry = {
+                "row": row_num,
+                "phc_id": target_phc,
+                "total_beds": total_b,
+                "occupied_beds": occupied_b,
+                "occupancy_rate": f"{round((occupied_b / max(total_b, 1)) * 100, 1)}%",
+                "valid": len(row_errors) == 0,
+                "errors": row_errors,
+            }
+            preview_rows.append(preview_entry)
+
+            if not row_errors:
+                valid_records.append(
+                    BedRecord(
+                        phc_id=target_phc,
+                        total_beds=total_b,
+                        occupied_beds=occupied_b,
+                        timestamp=datetime.utcnow(),
+                    )
+                )
+
+        elif detected_cat == "staff":
+            staff_id = str(row_dict.get("staff_id", f"STF-{idx+1:03d}")).strip()
+            role = str(row_dict.get("role", "Nurse")).strip()
+            st_raw = str(row_dict.get("status", "present")).strip().lower()
+            st_val = StaffStatusEnum.PRESENT if "pres" in st_raw else StaffStatusEnum.ABSENT
+
+            preview_entry = {
+                "row": row_num,
+                "phc_id": target_phc,
+                "staff_id": staff_id,
+                "role": role,
+                "status": st_val.value,
+                "valid": len(row_errors) == 0,
+                "errors": row_errors,
+            }
+            preview_rows.append(preview_entry)
+
+            if not row_errors:
+                valid_records.append(
+                    StaffAttendanceRecord(
+                        phc_id=target_phc,
+                        staff_id=staff_id,
+                        role=role,
+                        status=st_val,
+                        timestamp=datetime.utcnow(),
+                    )
+                )
+
+        elif detected_cat == "footfall":
+            dept = str(row_dict.get("department", "OPD")).strip()
+            try:
+                p_cnt = int(row_dict.get("patient_count", row_dict.get("patients", 0)))
+                if p_cnt < 0:
+                    row_errors.append("Patient count cannot be negative")
+            except (ValueError, TypeError):
+                row_errors.append("Patient count must be an integer")
+                p_cnt = 0
+
+            preview_entry = {
+                "row": row_num,
+                "phc_id": target_phc,
+                "department": dept,
+                "patient_count": p_cnt,
+                "valid": len(row_errors) == 0,
+                "errors": row_errors,
+            }
+            preview_rows.append(preview_entry)
+
+            if not row_errors:
+                valid_records.append(
+                    FootfallRecord(
+                        phc_id=target_phc,
+                        department=dept,
+                        patient_count=p_cnt,
+                        timestamp=datetime.utcnow(),
+                    )
+                )
+
+        if row_errors:
+            flagged_errors.append({"row": row_num, "errors": row_errors})
+
+    # Strict Jurisdiction Security Enforcement:
+    # State and District officers are prohibited from uploading telemetry outside their statutory boundary.
+    security_violations = [
+        err for f in flagged_errors for err in f["errors"] if "Security Alert:" in err
+    ]
+    if not dry_run and security_violations:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Jurisdiction Security Violation: {security_violations[0]} - Statutory regulations prohibit ingesting cross-jurisdiction records under NDMA Sec 38.",
+        )
+
+    committed_count = 0
+    if not dry_run and valid_records:
+        for rec in valid_records:
+            db.add(rec)
+        await db.commit()
+        committed_count = len(valid_records)
+
+    return {
+        "status": "validated" if dry_run else "committed",
+        "dry_run": dry_run,
+        "filename": filename,
+        "category": detected_cat,
+        "total_rows": len(df),
+        "valid_rows_count": len(valid_records),
+        "flagged_rows_count": len(flagged_errors),
+        "has_security_violations": len(security_violations) > 0,
+        "security_violations_count": len(security_violations),
+        "committed_records_count": committed_count,
+        "preview_rows": preview_rows[:50],
+        "columns_detected": list(df.columns),
+        "flagged_errors": flagged_errors[:20],
+        "processed_at": datetime.utcnow().isoformat() + "Z",
+    }

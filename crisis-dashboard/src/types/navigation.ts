@@ -4,6 +4,7 @@ export type PageId =
   | 'urgent-alert-feed'
   | 'emergency-redistribution'
   | 'inter-district-transfer-tracking'
+  | 'data-ingestion'
   | 'login'
   | 'register';
 

@@ -99,9 +99,9 @@ export const UrgentAlertFeed: React.FC<UrgentAlertFeedProps> = ({ onNavigate }) 
   const handleAcknowledge = async (id: number) => {
     setIsUpdatingId(id);
     try {
-      await updateAlertStatus(id, 'acknowledged');
+      const updated = await updateAlertStatus(id, 'acknowledged');
       setAlerts((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, status: 'acknowledged' } : a))
+        prev.map((a) => (a.id === id ? { ...a, status: 'acknowledged', acknowledged_by: updated.acknowledged_by || user?.username || 'Authorized Officer' } : a))
       );
     } catch (err: any) {
       alert(`Could not update alert status: ${err?.message || 'Server error'}`);
@@ -309,7 +309,7 @@ export const UrgentAlertFeed: React.FC<UrgentAlertFeedProps> = ({ onNavigate }) 
         <div className="flex flex-col gap-4">
           {alerts.map((alertItem) => {
             const isCritical = alertItem.severity === 'critical';
-            const isAck = alertItem.status === 'acknowledged';
+            const isAck = alertItem.status === 'acknowledged' || !!alertItem.acknowledged_by;
 
             return (
               <div

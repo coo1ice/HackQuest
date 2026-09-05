@@ -11,6 +11,7 @@ import { StateDistrictDrilldown } from './components/pages/StateDistrictDrilldow
 import { UrgentAlertFeed } from './components/pages/UrgentAlertFeed';
 import { EmergencyRedistribution } from './components/pages/EmergencyRedistribution';
 import { ResourceTransferTracking } from './components/pages/ResourceTransferTracking';
+import { DataIngestionPage } from './components/pages/DataIngestionPage';
 import { LoginPage } from './components/pages/LoginPage';
 import { RegisterPage } from './components/pages/RegisterPage';
 import { LoadingState } from './components/common/LoadingState';
@@ -30,12 +31,12 @@ function DashboardContent() {
   const getInitialPage = (): PageId => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '');
-      if (['login', 'register', 'national-overview', 'state-district-drill-down', 'urgent-alert-feed', 'emergency-redistribution', 'inter-district-transfer-tracking'].includes(hash)) {
+      if (['login', 'register', 'national-overview', 'state-district-drill-down', 'urgent-alert-feed', 'emergency-redistribution', 'inter-district-transfer-tracking', 'data-ingestion'].includes(hash)) {
         return hash as PageId;
       }
       const params = new URLSearchParams(window.location.search);
       const p = params.get('page');
-      if (p && ['login', 'register', 'national-overview', 'state-district-drill-down', 'urgent-alert-feed', 'emergency-redistribution', 'inter-district-transfer-tracking'].includes(p)) {
+      if (p && ['login', 'register', 'national-overview', 'state-district-drill-down', 'urgent-alert-feed', 'emergency-redistribution', 'inter-district-transfer-tracking', 'data-ingestion'].includes(p)) {
         return p as PageId;
       }
     }
@@ -474,6 +475,11 @@ function DashboardContent() {
             transferId={targetTransferId}
             onNavigate={handleNavigate}
           />
+        )}
+
+        {/* PAGE 6: TELEMETRY DATA INGESTION (CSV / EXCEL) */}
+        {activePage === 'data-ingestion' && (
+          <DataIngestionPage onNavigate={handleNavigate} />
         )}
       </main>
 
