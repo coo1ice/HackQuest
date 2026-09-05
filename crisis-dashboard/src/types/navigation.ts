@@ -3,7 +3,8 @@ export type PageId =
   | 'state-district-drill-down'
   | 'urgent-alert-feed'
   | 'emergency-redistribution'
-  | 'inter-district-transfer-tracking';
+  | 'inter-district-transfer-tracking'
+  | 'login';
 
 export interface NavigationContext {
   page: PageId;
@@ -12,5 +13,7 @@ export interface NavigationContext {
   facilityCode?: string;
   facilityName?: string;
   directiveRef?: string;
+  directiveId?: number;
   shipmentId?: string;
+  transferId?: number;
 }

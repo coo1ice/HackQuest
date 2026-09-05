@@ -8,6 +8,7 @@ interface IndiaMapProps {
   onSelectState: (stateId: string) => void;
   hoveredStateId: string | null;
   onHoverState: (stateId: string | null) => void;
+  statusMap?: Record<string, string>;
 }
 
 export const IndiaMap: React.FC<IndiaMapProps> = ({
@@ -15,6 +16,7 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
   onSelectState,
   hoveredStateId,
   onHoverState,
+  statusMap,
 }) => {
   const [showLabels, setShowLabels] = useState(true);
   const [showCorridors, setShowCorridors] = useState(true);
@@ -27,8 +29,9 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
     const selected = isStateSelected(id);
     const hovered = isStateHovered(id);
     const data = STATE_DATASET[id];
-    const isCritical = data?.status === 'Critical Stockout';
-    const isAdequate = data?.status === 'Adequate Reserve';
+    const liveStatus = statusMap?.[id];
+    const isCritical = liveStatus ? liveStatus === 'critical' : data?.status === 'Critical Stockout';
+    const isAdequate = liveStatus ? (liveStatus === 'warning' || liveStatus === 'adequate') : data?.status === 'Adequate Reserve';
 
     let classes = 'cursor-pointer transition-all duration-150 outline-none ';
 

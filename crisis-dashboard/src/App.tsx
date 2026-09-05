@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { PageId } from './types/navigation';
 import { Header } from './components/Header';
 import { KpiLedger } from './components/KpiLedger';
@@ -11,11 +11,18 @@ import { StateDistrictDrilldown } from './components/pages/StateDistrictDrilldow
 import { UrgentAlertFeed } from './components/pages/UrgentAlertFeed';
 import { EmergencyRedistribution } from './components/pages/EmergencyRedistribution';
 import { ResourceTransferTracking } from './components/pages/ResourceTransferTracking';
+import { LoginPage } from './components/pages/LoginPage';
+import { LoadingState } from './components/common/LoadingState';
+import { ErrorState } from './components/common/ErrorState';
+import { AuthProvider } from './context/AuthContext';
+import { getNationalOverview, getAlertsSummary, getTransfers } from './api/endpoints';
+import type { NationalOverviewResponse } from './api/types';
 import { STATE_DATASET } from './data/stateData';
 import type { StateCrisisData } from './data/stateData';
 import { Radio, Cpu, Layers } from 'lucide-react';
 
-export function App() {
+function DashboardContent() {
+
   const [activePage, setActivePage] = useState<PageId>('national-overview');
   const [selectedStateId, setSelectedStateId] = useState<string>('INBR');
   const [hoveredStateId, setHoveredStateId] = useState<string | null>(null);
@@ -24,8 +31,75 @@ export function App() {
   // Cross-page navigation contextual options
   const [targetFacility, setTargetFacility] = useState<string>('Kanti PHC (Muzaffarpur)');
   const [highlightedShipmentId, setHighlightedShipmentId] = useState<string>('TR-2024-9041');
+  const [targetDirectiveId, setTargetDirectiveId] = useState<number | undefined>(undefined);
+  const [targetTransferId, setTargetTransferId] = useState<number | undefined>(undefined);
 
+  // Live national data states
+  const [overview, setOverview] = useState<NationalOverviewResponse | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState<boolean>(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('14:32 IST');
+
+  // Badge counters
+  const [urgentAlertCount, setUrgentAlertCount] = useState<number>(4);
+  const [activeTransferCount, setActiveTransferCount] = useState<number>(6);
+
+  // Selected state from dataset or mapped
   const selectedState = STATE_DATASET[selectedStateId] || STATE_DATASET['INBR'];
+
+  // Fetch National Overview
+  const fetchOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError(null);
+    try {
+      const data = await getNationalOverview();
+      setOverview(data);
+      if (data.last_synced_at) {
+        const d = new Date(data.last_synced_at);
+        const formatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        setLastSyncTime(`${formatted} IST`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to connect to national telemetry service';
+      setOverviewError(msg);
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, []);
+
+  // Fetch alert & transfer badge counts
+  const fetchBadgeCounts = useCallback(async () => {
+    try {
+      const summary = await getAlertsSummary();
+      setUrgentAlertCount(summary.critical_count);
+    } catch {
+      // Keep default badge count if unauthenticated or error
+    }
+
+    try {
+      const transfers = await getTransfers();
+      const inTransit = transfers.filter((t) => t.status !== 'received').length;
+      setActiveTransferCount(inTransit);
+    } catch {
+      // Keep default badge count if unauthenticated or error
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOverview();
+    fetchBadgeCounts();
+  }, [fetchOverview, fetchBadgeCounts]);
+
+  // Status mapping for SVG India map
+  const statusMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (overview?.states) {
+      for (const s of overview.states) {
+        map[s.state_id] = s.status;
+      }
+    }
+    return map;
+  }, [overview]);
 
   // Global navigation router
   const handleNavigate = (
@@ -35,6 +109,8 @@ export function App() {
       districtName?: string;
       facilityName?: string;
       shipmentId?: string;
+      directiveId?: number;
+      transferId?: number;
     }
   ) => {
     if (options?.stateId && STATE_DATASET[options.stateId]) {
@@ -45,6 +121,12 @@ export function App() {
     }
     if (options?.shipmentId) {
       setHighlightedShipmentId(options.shipmentId);
+    }
+    if (options?.directiveId !== undefined) {
+      setTargetDirectiveId(options.directiveId);
+    }
+    if (options?.transferId !== undefined) {
+      setTargetTransferId(options.transferId);
     }
     setActivePage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -81,6 +163,37 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [inspectingState, activePage]);
 
+  // If user is on login page
+  if (activePage === 'login') {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col text-slate-900 selection:bg-slate-800 selection:text-white">
+        <Header
+          activePage="login"
+          onNavigate={(p) => handleNavigate(p)}
+          onEmergencyOverride={() => handleNavigate('urgent-alert-feed')}
+          lastSyncTime={lastSyncTime}
+          urgentAlertCount={urgentAlertCount}
+          activeTransferCount={activeTransferCount}
+        />
+        <main className="flex-1 w-full max-w-[1780px] mx-auto p-4 sm:p-6 pt-28 sm:pt-28 flex flex-col items-center justify-center">
+          <LoginPage onLoginSuccess={(target) => handleNavigate(target || 'national-overview')} />
+        </main>
+        <footer className="w-full bg-white border-t border-slate-300 py-3 px-4 sm:px-6 mt-auto">
+          <div className="max-w-[1780px] mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+            <div>
+              Official Portal of MoHFW, Government of India • National Health Resource Monitoring Cell
+            </div>
+            <div className="flex items-center gap-4 font-mono text-[11px]">
+              <span>BUILD v4.19.8-PROD</span>
+              <span>NIC Node: DL-COMMAND-01</span>
+              <span className="text-slate-700 font-semibold">SECURITY: CONFIDENTIAL-OPS</span>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col text-slate-900 selection:bg-slate-800 selection:text-white">
       {/* 5-Tab Persistent Command Header */}
@@ -88,9 +201,12 @@ export function App() {
         activePage={activePage}
         onNavigate={(p) => handleNavigate(p)}
         onEmergencyOverride={() => handleNavigate('urgent-alert-feed')}
+        lastSyncTime={lastSyncTime}
+        urgentAlertCount={urgentAlertCount}
+        activeTransferCount={activeTransferCount}
       />
 
-      {/* Main Operational Container (Offset by 96px header) */}
+      {/* Main Operational Container (Offset by header) */}
       <main className="flex-1 w-full max-w-[1780px] mx-auto p-4 sm:p-6 pt-28 sm:pt-28 flex flex-col gap-4">
         {/* PAGE 1: NATIONAL OVERVIEW */}
         {activePage === 'national-overview' && (
@@ -100,7 +216,7 @@ export function App() {
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 bg-error"></span>
                 <span className="text-xs font-bold uppercase tracking-wide text-slate-900">
-                  NATIONAL CRISIS DISPATCH &amp; RESOURCE MONITORING
+                  National Crisis Dispatch and Resource Monitoring
                 </span>
                 <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-1.5 py-0.5">
                   JURISDICTION: ALL INDIA (36 STATES &amp; UTs)
@@ -109,14 +225,29 @@ export function App() {
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span className="flex items-center gap-1 text-secondary font-medium">
                   <Radio className="w-3.5 h-3.5 text-secondary animate-pulse" />
-                  99.1% reporting telemetry
+                  {overview?.reporting_rate_pct != null
+                    ? `${overview.reporting_rate_pct.toFixed(1)}% reporting telemetry`
+                    : '99.1% reporting telemetry'}
                 </span>
                 <span>•</span>
-                <span>Last census sync: <strong>14:32 IST</strong></span>
+                <span>Last census sync: <strong>{lastSyncTime}</strong></span>
               </div>
             </div>
 
-            {/* Composite Vulnerability Map & Red/Blue Metrics Legend Sub-strip */}
+            {/* Error or Loading Banner for National Overview */}
+            {overviewError && (
+              <ErrorState
+                title="National Telemetry Sync Notice"
+                message={overviewError}
+                onRetry={fetchOverview}
+              />
+            )}
+
+            {overviewLoading && !overview && (
+              <LoadingState message="Polling national PHC resource telemetry across all state commands..." />
+            )}
+
+            {/* Composite Vulnerability Map & Legend Sub-strip */}
             <div className="w-full px-4 py-2 bg-white border border-slate-300 shadow-2xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-secondary" />
@@ -150,8 +281,22 @@ export function App() {
               </div>
             </div>
 
-            {/* National Operational KPI Ledger with Clickable Connections */}
-            <KpiLedger onNavigate={handleNavigate} />
+            {/* National Operational KPI Ledger */}
+            <KpiLedger
+              onNavigate={handleNavigate}
+              data={
+                overview
+                  ? {
+                      totalPhcs: overview.total_phcs,
+                      reportingPhcs: overview.reporting_phcs,
+                      reportingRatePct: overview.reporting_rate_pct,
+                      criticalStatesCount: overview.critical_deficit_states_count,
+                      bedOccupancyPct: overview.national_bed_occupancy_pct,
+                      inTransitTransfersCount: overview.in_transit_transfers_count,
+                    }
+                  : undefined
+              }
+            />
 
             {/* Spatial Surveillance Map & Urgency Registry Split Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
@@ -174,12 +319,12 @@ export function App() {
 
                   {/* Map Container with Relative Positioning for the Floating Command Panel */}
                   <div className="relative w-full bg-slate-50/70 border border-slate-200 min-h-[580px] sm:min-h-[640px] flex items-center justify-center overflow-hidden">
-                    {/* SVG India Map Component */}
                     <IndiaMap
                       selectedStateId={selectedStateId}
                       onSelectState={handleSelectState}
                       hoveredStateId={hoveredStateId}
                       onHoverState={setHoveredStateId}
+                      statusMap={statusMap}
                     />
 
                     {/* Floating Command Panel in Bottom-Left Corner */}
@@ -201,6 +346,7 @@ export function App() {
                   selectedStateId={selectedStateId}
                   onSelectState={handleSelectState}
                   onDrilldownState={handleDrilldownState}
+                  apiStates={overview?.states}
                 />
               </div>
             </div>
@@ -224,6 +370,7 @@ export function App() {
         {activePage === 'emergency-redistribution' && (
           <EmergencyRedistribution
             targetFacilityName={targetFacility}
+            directiveId={targetDirectiveId}
             onNavigate={handleNavigate}
           />
         )}
@@ -232,6 +379,7 @@ export function App() {
         {activePage === 'inter-district-transfer-tracking' && (
           <ResourceTransferTracking
             highlightedShipmentId={highlightedShipmentId}
+            transferId={targetTransferId}
             onNavigate={handleNavigate}
           />
         )}
@@ -265,6 +413,14 @@ export function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <DashboardContent />
+    </AuthProvider>
   );
 }
 

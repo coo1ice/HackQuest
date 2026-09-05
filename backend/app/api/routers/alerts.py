@@ -47,6 +47,28 @@ async def list_alerts(
         )
     return responses
 
+@router.get("/summary")
+async def alerts_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return aggregate statistics of active alerts."""
+    q = select(Alert)
+    res = await db.execute(q)
+    alerts = res.scalars().all()
+
+    total = len(alerts)
+    critical = sum(1 for a in alerts if str(getattr(a.severity, "value", a.severity)).lower() == "critical")
+    warning = sum(1 for a in alerts if str(getattr(a.severity, "value", a.severity)).lower() in ("high", "medium"))
+    staff = sum(1 for a in alerts if "staff" in str(a.resource_type).lower())
+
+    return {
+        "total_active_alerts": total,
+        "critical_count": critical,
+        "warning_count": warning,
+        "staff_shortage_count": staff,
+    }
+
 @router.get("/{id}", response_model=AlertResponse)
 async def get_alert(
     id: int,

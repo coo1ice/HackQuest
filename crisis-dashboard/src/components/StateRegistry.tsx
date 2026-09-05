@@ -1,23 +1,41 @@
 import React, { useState } from 'react';
 import { STATE_DATASET } from '../data/stateData';
 import { Search, ChevronRight } from 'lucide-react';
+import type { StateSummaryItem } from '../api/types';
 
 interface StateRegistryProps {
   selectedStateId: string;
   onSelectState: (stateId: string) => void;
   onDrilldownState?: (stateId: string) => void;
+  apiStates?: StateSummaryItem[];
 }
 
 export const StateRegistry: React.FC<StateRegistryProps> = ({
   selectedStateId,
   onSelectState,
   onDrilldownState,
+  apiStates,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'critical' | 'warning' | 'normal'>('all');
   const [sortBy, setSortBy] = useState<'urgency' | 'occupancy' | 'alphabetical'>('urgency');
 
-  const statesList = Object.values(STATE_DATASET);
+  // Convert apiStates into registry items or fallback to STATE_DATASET
+  const statesList = apiStates && apiStates.length > 0
+    ? apiStates.map((s, idx) => ({
+        id: s.state_id,
+        name: s.state_name,
+        urgencyRank: idx + 1,
+        statusCategory: s.status === 'critical' ? 'critical' : s.status === 'warning' ? 'warning' : 'normal',
+        statusBadge: s.status === 'critical' ? 'CRITICAL DEFICIT' : s.status === 'warning' ? 'ADEQUATE RESERVE' : 'NORMAL BUFFER',
+        stockHealth: `${Math.round(s.stock_health_score)}%`,
+        stockHealthPercent: Math.round(s.stock_health_score),
+        icuOccupancyPercent: Math.round(s.bed_occupancy_pct),
+        riskDistricts: s.critical_phcs_count,
+        totalDistricts: s.total_districts,
+        totalPhcs: s.total_phcs,
+      }))
+    : Object.values(STATE_DATASET);
 
   // Filter & Search logic
   const filteredStates = statesList
@@ -41,15 +59,15 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
     });
 
   return (
-    <div className="flex flex-col h-full bg-white border border-slate-300 p-4">
+    <div className="flex flex-col h-full bg-white border border-slate-300 p-4 shadow-xs">
       {/* Registry Title & Total Counter */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-            States Ranked by Urgency
+            States Ranked by Severity
           </h2>
           <span className="text-[11px] text-slate-500">
-            Real-time telemetry from 36 States &amp; UTs
+            Real-time surveillance ranking
           </span>
         </div>
         <span className="text-xs font-bold tabular-nums bg-slate-100 text-slate-700 px-2 py-0.5 border border-slate-200">
@@ -60,18 +78,20 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
       {/* Filter Tabs */}
       <div className="grid grid-cols-4 gap-1 my-3 text-[11px]">
         <button
+          type="button"
           onClick={() => setFilterCategory('all')}
-          className={`py-1 text-center font-semibold border transition-all ${
+          className={`py-1 text-center font-semibold border transition-all cursor-pointer ${
             filterCategory === 'all'
               ? 'bg-slate-900 text-white border-slate-900'
               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
           }`}
         >
-          All (36)
+          All
         </button>
         <button
+          type="button"
           onClick={() => setFilterCategory('critical')}
-          className={`py-1 text-center font-semibold border transition-all ${
+          className={`py-1 text-center font-semibold border transition-all cursor-pointer ${
             filterCategory === 'critical'
               ? 'bg-error text-white border-error'
               : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
@@ -80,8 +100,9 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
           Critical
         </button>
         <button
+          type="button"
           onClick={() => setFilterCategory('warning')}
-          className={`py-1 text-center font-semibold border transition-all ${
+          className={`py-1 text-center font-semibold border transition-all cursor-pointer ${
             filterCategory === 'warning'
               ? 'bg-secondary text-white border-secondary'
               : 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
@@ -90,14 +111,15 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
           Reserve
         </button>
         <button
+          type="button"
           onClick={() => setFilterCategory('normal')}
-          className={`py-1 text-center font-semibold border transition-all ${
+          className={`py-1 text-center font-semibold border transition-all cursor-pointer ${
             filterCategory === 'normal'
               ? 'bg-slate-700 text-white border-slate-700'
               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
           }`}
         >
-          Normal
+          Buffer
         </button>
       </div>
 
@@ -110,13 +132,13 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search state..."
-            className="w-full pl-8 pr-2.5 py-1 text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:border-secondary transition-colors"
+            className="w-full pl-8 pr-2.5 py-1 text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:border-slate-800 transition-colors"
           />
         </div>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="text-xs py-1 px-2 bg-slate-50 border border-slate-200 focus:outline-none text-slate-700 font-medium"
+          className="text-xs py-1 px-2 bg-slate-50 border border-slate-200 focus:outline-none text-slate-700 font-medium cursor-pointer"
         >
           <option value="urgency">Highest Deficit</option>
           <option value="occupancy">Highest ICU Occupancy</option>
@@ -128,12 +150,12 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
       <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[560px]">
         {filteredStates.map((state) => {
           const isSelected = state.id === selectedStateId;
-          const isCritical = state.status === 'Critical Stockout';
-          const isWarning = state.status === 'Adequate Reserve';
+          const isCritical = state.statusCategory === 'critical';
+          const isWarning = state.statusCategory === 'warning';
 
           let cardBg = 'bg-white border-slate-200 hover:border-slate-400';
           if (isSelected) {
-            cardBg = 'bg-slate-50 border-slate-900 ring-2 ring-slate-900';
+            cardBg = 'bg-slate-50 border-slate-900 ring-1 ring-slate-900';
           } else if (isCritical) {
             cardBg = 'bg-red-50/50 border-red-200 hover:border-red-300';
           } else if (isWarning) {
@@ -165,7 +187,7 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 group-hover:text-slate-900">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
                   {onDrilldownState && (
                     <button
                       type="button"
@@ -173,14 +195,13 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
                         e.stopPropagation();
                         onDrilldownState(state.id);
                       }}
-                      className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-900 hover:text-white border border-slate-300 text-[10px] font-bold transition-colors cursor-pointer"
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-900 hover:text-white border border-slate-300 text-[10px] font-bold transition-colors cursor-pointer"
                       title="Open district & PHC drill-down"
                     >
-                      Drill-down &rarr;
+                      Drill-down
                     </button>
                   )}
-                  <span className="hidden sm:inline">Inspect</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                 </div>
               </div>
 
@@ -198,20 +219,20 @@ export const StateRegistry: React.FC<StateRegistryProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-slate-500 block">ICU Occupancy</span>
+                  <span className="text-[10px] text-slate-500 block">Bed Occupancy</span>
                   <span className="font-semibold text-slate-800 tabular-nums">
                     {state.icuOccupancyPercent}%
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Risk Districts</span>
+                  <span className="text-[10px] text-slate-500 block">Critical Units</span>
                   <span
                     className={`font-bold tabular-nums ${
                       state.riskDistricts > 0 ? 'text-error' : 'text-slate-500'
                     }`}
                   >
-                    {state.riskDistricts} / {state.totalDistricts}
+                    {state.riskDistricts}
                   </span>
                 </div>
               </div>
