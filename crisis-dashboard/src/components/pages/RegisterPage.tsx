@@ -328,8 +328,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
 
           {/* Statutory Declaration */}
           <div className="bg-slate-50 border border-slate-200 p-3">
-            <label className="flex items-start gap-2 cursor-pointer select-none">
+            <label htmlFor="reg-declaration" className="flex items-start gap-2 cursor-pointer select-none">
               <input
+                id="reg-declaration"
+                name="declaration"
                 type="checkbox"
                 checked={declarationAgreed}
                 onChange={(e) => setDeclarationAgreed(e.target.checked)}
