@@ -18,7 +18,7 @@ import {
 import { safeRound } from '../../utils/formatters';
 
 interface StateDistrictDrilldownProps {
-  selectedStateId?: string;
+  selectedStateId?: string | null;
   onNavigate: (page: PageId, options?: { stateId?: string; districtName?: string; facilityName?: string; directiveId?: number }) => void;
 }
 
@@ -26,7 +26,8 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
   selectedStateId = 'INBR',
   onNavigate,
 }) => {
-  const fallbackStateData = STATE_DATASET[selectedStateId] || STATE_DATASET['INBR'];
+  const sid = selectedStateId ?? 'INBR';
+  const fallbackStateData = STATE_DATASET[sid] || STATE_DATASET['INBR'];
 
   // State overview & district telemetry data
   const [stateOverview, setStateOverview] = useState<StateOverviewResponse | null>(null);
@@ -53,7 +54,7 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
     setError(null);
     try {
       const [overviewRes, recsRes] = await Promise.all([
-        getStateOverview(selectedStateId),
+        getStateOverview(sid),
         getRedistributionRecommendations('pending').catch(() => []),
       ]);
       setStateOverview(overviewRes);
@@ -202,7 +203,7 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
               <ChevronRight className="w-3 h-3 text-slate-400" />
               <span className="text-slate-900 font-bold">{stateName} State Command</span>
               <span className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 text-slate-700 font-mono text-[11px]">
-                ID: {selectedStateId}-SURV
+                ID: {sid}-SURV
               </span>
             </div>
 
@@ -318,7 +319,7 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onNavigate('emergency-redistribution', { stateId: selectedStateId })}
+              onClick={() => onNavigate('emergency-redistribution', { stateId: sid })}
               className="bg-black text-white hover:bg-slate-800 text-xs font-semibold px-3 py-1.5 flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -392,7 +393,7 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
                     type="button"
                     onClick={() =>
                       onNavigate('emergency-redistribution', {
-                        stateId: selectedStateId,
+                        stateId: sid,
                         directiveId: rec.id,
                         facilityName: rec.to_phc_name || rec.to_phc_id,
                       })
@@ -555,7 +556,7 @@ export const StateDistrictDrilldown: React.FC<StateDistrictDrilldownProps> = ({
                           type="button"
                           onClick={() =>
                             onNavigate('emergency-redistribution', {
-                              stateId: selectedStateId,
+                              stateId: sid,
                               facilityName: facility.name,
                             })
                           }

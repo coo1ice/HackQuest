@@ -61,8 +61,8 @@ async def get_national_overview(db: AsyncSession) -> NationalOverviewResponse:
     res = await db.execute(query)
     state_ids = [r[0] for r in res.fetchall()]
 
-    # If database has states, use them; if empty, include standard 36 state codes
-    all_codes = list(STATE_NAMES.keys()) if not state_ids else state_ids
+    # Always show all 36 states; seeded states get real data, rest get estimated values
+    all_codes = list(STATE_NAMES.keys())
 
     total_phcs_res = await db.execute(select(func.count(PHC.id)))
     total_phcs = total_phcs_res.scalar() or 0

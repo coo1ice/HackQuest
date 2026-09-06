@@ -8,8 +8,9 @@
             "type": "msedge",
             "request": "launch",
             "name": "Launch Edge against localhost",
-            "url": "http://localhost:8080",
-            "webRoot": "${workspaceFolder}"
+            "url": "http://127.0.0.1:8080",
+            "webRoot": "${workspaceFolder}",
+            "preLaunchTask": "vite: dev (8080)"
         }
     ]
 }

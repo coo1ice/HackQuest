@@ -75,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const formattedSyncTime = lastSyncTime
-    ? `Synced: ${new Date(lastSyncTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST`
+    ? `Synced: ${lastSyncTime} IST`
     : 'Telemetry: 5m interval';
 
   return (

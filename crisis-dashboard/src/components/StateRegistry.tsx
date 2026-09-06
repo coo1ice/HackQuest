@@ -5,7 +5,7 @@ import type { StateSummaryItem } from '../api/types';
 import { safeRound } from '../utils/formatters';
 
 interface StateRegistryProps {
-  selectedStateId: string;
+  selectedStateId: string | null;
   onSelectState: (stateId: string) => void;
   onDrilldownState?: (stateId: string) => void;
   apiStates?: StateSummaryItem[];

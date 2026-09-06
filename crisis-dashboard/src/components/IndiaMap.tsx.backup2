@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import type { PageId } from "../types/navigation";
 import { STATE_DATASET } from '../data/stateData';
 import { INDIA_MAP_FEATURES } from '../data/indiaMapPaths';
-import type { StateCrisisData } from "../data/stateData";
-import { Radio, Truck, Layers, Eye, EyeOff, AlertTriangle, CheckCircle2, ChevronRight, ExternalLink } from 'lucide-react';
+import { Radio, Truck, Layers, Eye, EyeOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { formatPct } from '../utils/formatters';
 
 interface IndiaMapProps {
-  onNavigate?: (page: PageId, options?: { stateId?: string; districtName?: string; facilityName?: string; shipmentId?: string; directiveId?: number; transferId?: number; }) => void;
-  selectedStateId: string | null;
-  onSelectState: (stateId: string | null) => void;
+  selectedStateId: string;
+  onSelectState: (stateId: string) => void;
   hoveredStateId: string | null;
   onHoverState: (stateId: string | null) => void;
   statusMap?: Record<string, string>;
+  onNavigate?: (page: string, options?: { stateId?: string; districtName?: string; facilityName?: string; shipmentId?: string; directiveId?: number; transferId?: number; }) => void;
   onOpenNode?: (state: StateCrisisData) => void;
 }
 
@@ -22,10 +21,7 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
   onHoverState,
   statusMap,
   onNavigate,
-    onOpenNode,
 }) => {
-  const sel = selectedStateId ?? 'INBR';
-  const selectedState = STATE_DATASET[sel];
   const [showLabels, setShowLabels] = useState(true);
   const [showCorridors, setShowCorridors] = useState(true);
   const [showBeacons, setShowBeacons] = useState(false); // Disabled beacons/animations as requested
@@ -62,7 +58,29 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
     return classes;
   };
 
-  
+  const hoveredStateData = hoveredStateId
+    ? STATE_DATASET[hoveredStateId] || {
+        id: hoveredStateId,
+        name: hoveredStateId,
+        commandName: `${hoveredStateId} State Command`,
+        status: statusMap?.[hoveredStateId] === 'critical' ? 'Critical Stockout' : 'Normal / Buffer Ready',
+        statusCategory: statusMap?.[hoveredStateId] === 'critical' ? 'critical' : 'normal',
+        statusBadge: statusMap?.[hoveredStateId] === 'critical' ? 'CRITICAL DEFICIT' : 'NORMAL BUFFER',
+        phcsReporting: 12,
+        totalPhcs: 12,
+        icuOccupancy: '65.0%',
+        icuOccupancyPercent: 65.0,
+        stockHealth: '78%',
+        stockHealthPercent: 78,
+        avgReserveRunrate: '14.0 Days',
+        riskDistricts: 0,
+        totalDistricts: 4,
+        summary: 'Standard territorial health resource monitoring active.',
+        logisticsStatus: 'Corridor Standby',
+        sso: 'Designated Surveillance Officer',
+        urgencyRank: 10,
+      }
+    : null;
 
   return (
     <div className="relative w-full h-full flex items-center justify-center p-2 select-none overflow-hidden">
@@ -121,8 +139,8 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
         </div>
       </div>
 
-      {/* Top-Left Triage Legend */}
-      <div className="absolute top-10 left-3 z-30 hidden md:flex flex-col gap-1.5 bg-white/90 backdrop-blur-md px-2 py-2 rounded-lg border border-slate-200 shadow-sm pointer-events-auto text-[11px]">
+      {/* Top-Right Triage Legend */}
+      <div className="absolute top-3 right-3 z-30 hidden md:flex flex-col gap-1.5 bg-white/90 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-200 shadow-sm pointer-events-auto text-[11px]">
         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
           Triage Tiers (36 States &amp; UTs)
         </div>
@@ -143,7 +161,51 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
         </div>
       </div>
 
-      {/* Hover card removed per request (deep-blue hover HUD) */}
+      {/* Hover Information Floating HUD Card */}
+      {hoveredStateData && (
+        <div className="absolute bottom-4 right-4 z-40 bg-slate-900/95 text-white p-3 rounded-lg border border-slate-700/80 shadow-2xl backdrop-blur-md max-w-xs pointer-events-none transition-all duration-150 animate-in fade-in zoom-in-95">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-700/60 pb-1.5 mb-2">
+            <div>
+              <div className="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
+                {hoveredStateData.name}
+                <span className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">
+                  {hoveredStateData.id}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-400">{hoveredStateData.commandName}</div>
+            </div>
+            <span
+              className={`text-[9px] font-bold px-2 py-0.5 rounded tracking-wider uppercase ${
+                hoveredStateData.statusCategory === 'critical'
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                  : hoveredStateData.statusCategory === 'normal'
+                  ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40'
+                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+              }`}
+            >
+              {hoveredStateData.statusBadge}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-[11px] mb-2">
+            <div className="bg-slate-800/80 p-1.5 rounded">
+              <span className="text-[10px] text-slate-400 block">Stock Health</span>
+              <span className="font-bold text-white tabular-nums">{hoveredStateData.stockHealth}</span>
+            </div>
+            <div className="bg-slate-800/80 p-1.5 rounded">
+              <span className="text-[10px] text-slate-400 block">ICU Load</span>
+              <span className="font-bold text-white tabular-nums">{formatPct(hoveredStateData.icuOccupancyPercent, 65)}</span>
+            </div>
+          </div>
+
+          {hoveredStateData.logisticsStatus && (
+            <div className="text-[10px] text-slate-300 flex items-center gap-1.5 pt-1 border-t border-slate-800">
+              <Truck className="w-3 h-3 text-secondary flex-shrink-0" />
+              <span className="truncate">{hoveredStateData.logisticsStatus}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Indian Standard Map SVG (Official SimpleMaps Geographic Projection) */}
       <svg
@@ -186,6 +248,39 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
                 filter={isCritical ? 'url(#alertGlow)' : undefined}
                 onClick={() => {
                   onSelectState(feature.id);
+                  // Position Command Panel near the selected state with boundary checking
+                  const centerX = feature.center.x;
+                  const centerY = feature.center.y;
+
+                  // Calculate panel position with offset to avoid covering the state itself
+                  let panelX = centerX + 20; // Offset to the right
+                  let panelY = centerY - 80; // Offset above
+
+                  // Boundary checking to keep panel within SVG viewBox (0-1000)
+                  const panelWidth = 300; // Approximate width of Command Panel
+                  const panelHeight = 200; // Approximate height of Command Panel
+
+                  // Adjust if panel would go outside right boundary
+                  if (panelX + panelWidth > 1000) {
+                    panelX = centerX - panelWidth - 20; // Move to left side
+                  }
+
+                  // Adjust if panel would go outside top boundary
+                  if (panelY < 0) {
+                    panelY = centerY + 20; // Move below
+                  }
+
+                  // Adjust if panel would go outside bottom boundary
+                  if (panelY + panelHeight > 1000) {
+                    panelY = 1000 - panelHeight; // Stick to bottom
+                  }
+
+                  // Adjust if panel would go outside left boundary
+                  if (panelX < 0) {
+                    panelX = 20; // Stick to left
+                  }
+
+                  setPanelPosition({ x: panelX, y: panelY });
                 }}
                 onMouseEnter={() => onHoverState(feature.id)}
                 onMouseLeave={() => onHoverState(null)}
@@ -291,21 +386,20 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
       </svg>
 
       {/* Minimal Command Panel in Top-Right Corner - Only show when a state is actively selected */}
-      {/* Minimal Command Panel in Top-Right Corner - Only show when a state is actively selected */}
       {selectedStateId && (
         <div className="absolute top-4 right-4 z-30 max-w-xs sm:max-w-sm w-[calc(100%-2rem)] sm:w-[260px] bg-white/80 backdrop-blur-md border border-slate-200 shadow-lg p-2 transition-all duration-300 rounded-none">
           {/* Compact Header */}
           <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
             <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${selectedState?.statusCategory === 'critical' ? 'bg-error' : selectedState?.statusCategory === 'warning' ? 'bg-secondary' : 'bg-slate-500'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${STATE_DATASET[selectedStateId]?.statusCategory === 'critical' ? 'bg-error' : STATE_DATASET[selectedStateId]?.statusCategory === 'warning' ? 'bg-secondary' : 'bg-slate-500'}`}></span>
               <h2 className="text-sm font-semibold text-slate-900 tracking-tight">
-                {selectedState?.commandName || `${selectedState?.name} State Command`}
+                {STATE_DATASET[selectedStateId]?.commandName || `${STATE_DATASET[selectedStateId]?.name} State Command`}
               </h2>
             </div>
             <span
-              className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 border ${selectedState?.statusCategory === 'critical' ? 'bg-red-100 text-red-800 border-red-300' : selectedState?.statusCategory === 'warning' ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-slate-100 text-slate-800 border-slate-300'}`}
+              className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 border ${STATE_DATASET[selectedStateId]?.statusCategory === 'critical' ? 'bg-red-100 text-red-800 border-red-300' : STATE_DATASET[selectedStateId]?.statusCategory === 'warning' ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-slate-100 text-slate-800 border-slate-300'}`}
             >
-                {selectedState?.statusBadge || (selectedState?.statusCategory === 'critical' ? 'Critical Deficit' : selectedState?.statusCategory === 'warning' ? 'Adequate Reserve' : 'Normal Buffer')}
+              {STATE_DATASET[selectedStateId]?.statusBadge || (STATE_DATASET[selectedStateId]?.statusCategory === 'critical' ? 'Critical Deficit' : STATE_DATASET[selectedStateId]?.statusCategory === 'warning' ? 'Adequate Reserve' : 'Normal Buffer')}
             </span>
           </div>
 
@@ -314,59 +408,20 @@ export const IndiaMap: React.FC<IndiaMapProps> = ({
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">PHCs</span>
               <span className="font-mono text-slate-900">
-                {selectedState?.phcsReporting?.toLocaleString() || '0'}/{selectedState?.totalPhcs?.toLocaleString() || '0'}
+                {STATE_DATASET[selectedStateId]?.phcsReporting?.toLocaleString() || '0'}/{STATE_DATASET[selectedStateId]?.totalPhcs?.toLocaleString() || '0'}
               </span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">Beds</span>
-              <span className={`${selectedState?.statusCategory === 'critical' ? 'text-error' : selectedState?.statusCategory === 'warning' ? 'text-secondary' : 'text-slate-700'} font-mono`}>
-                {selectedState?.icuOccupancy || selectedState?.icuOccupancyPercent !== undefined ? `${selectedState?.icuOccupancyPercent}%` : '65%'}
+              <span className={`${STATE_DATASET[selectedStateId]?.statusCategory === 'critical' ? 'text-error' : STATE_DATASET[selectedStateId]?.statusCategory === 'warning' ? 'text-secondary' : 'text-slate-700'} font-mono`}>
+                {STATE_DATASET[selectedStateId]?.icuOccupancy || STATE_DATASET[selectedStateId]?.icuOccupancyPercent !== undefined ? `${STATE_DATASET[selectedStateId]?.icuOccupancyPercent}%` : '65%'}
               </span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">Stock</span>
-              <span className={`${selectedState?.statusCategory === 'critical' ? 'text-error' : selectedState?.statusCategory === 'warning' ? 'text-secondary' : 'text-slate-700'} font-mono`}>
-                {selectedState?.stockHealth || selectedState?.stockHealthPercent !== undefined ? `${selectedState?.stockHealthPercent}%` : '78%'}
+              <span className={`${STATE_DATASET[selectedStateId]?.statusCategory === 'critical' ? 'text-error' : STATE_DATASET[selectedStateId]?.statusCategory === 'warning' ? 'text-secondary' : 'text-slate-700'} font-mono`}>
+                {STATE_DATASET[selectedStateId]?.stockHealth || STATE_DATASET[selectedStateId]?.stockHealthPercent !== undefined ? `${STATE_DATASET[selectedStateId]?.stockHealthPercent}%` : '78%'}
               </span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mt-2 pt-1.5 border-t border-slate-100">
-            <div className="flex justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const stateId = selectedStateId;
-                  // Toggle selection via parent handler (parent will set null if already selected)
-                  if (stateId) onSelectState(stateId);
-                  // Navigate if a handler is provided
-                  onNavigate?.('state-district-drill-down', { stateId });
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-1.5 py-1 text-xs font-semibold tracking-wide transition-colors flex items-center gap-0.5 cursor-pointer"
-                title="Drill-down into district telemetry"
-              >
-                <span>Drill-down</span>
-                <ChevronRight className="w-2.5 h-2.5 text-slate-400" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const state = selectedState;
-                  if (state && onOpenNode) {
-                    onOpenNode(state);
-                  }
-                }}
-                className="shrink-0 bg-black text-white hover:bg-slate-800 px-1.5 py-1 text-xs font-semibold tracking-wide transition-colors flex items-center gap-0.5 cursor-pointer shadow-xs"
-              >
-                <span>Open node</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
- };
+};

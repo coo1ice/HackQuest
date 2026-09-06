@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/nhrm_india"
+    # Default to local SQLite fallback for development and CI/test environments.
+    DATABASE_URL: str = "sqlite+aiosqlite:///./phc_health_db.sqlite"
     SQLITE_FALLBACK_URL: str = "sqlite+aiosqlite:///./phc_health_db.sqlite"
 
     CORS_ORIGINS: List[str] = [

@@ -3,7 +3,6 @@ import type { PageId } from './types/navigation';
 import { Header } from './components/Header';
 import { KpiLedger } from './components/KpiLedger';
 import { IndiaMap } from './components/IndiaMap';
-import { CommandPanel } from './components/CommandPanel';
 import { StateRegistry } from './components/StateRegistry';
 import { InfrastructureStrip } from './components/InfrastructureStrip';
 import { NodeDetailModal } from './components/NodeDetailModal';
@@ -44,20 +43,14 @@ function DashboardContent() {
   };
 
   const [activePage, setActivePage] = useState<PageId>(getInitialPage);
-  const [selectedStateId, setSelectedStateId] = useState<string>(() => {
+  const [selectedStateId, setSelectedStateId] = useState<string | null>(() => {
     if (user?.role === 'state_officer' && user.scope_id && STATE_DATASET[user.scope_id]) {
       return user.scope_id;
     }
     return 'INBR';
   });
 
-  // Automatically sync jurisdiction state when officer logs in
-  useEffect(() => {
-    if (user?.role === 'state_officer' && user.scope_id && STATE_DATASET[user.scope_id]) {
-      setSelectedStateId(user.scope_id);
-    }
-  }, [user]);
-
+  // UI state: hovered, inspecting
   const [hoveredStateId, setHoveredStateId] = useState<string | null>(null);
   const [inspectingState, setInspectingState] = useState<StateCrisisData | null>(null);
 
@@ -77,9 +70,6 @@ function DashboardContent() {
   const [urgentAlertCount, setUrgentAlertCount] = useState<number>(4);
   const [activeTransferCount, setActiveTransferCount] = useState<number>(6);
 
-  // Selected state from dataset or mapped
-  const selectedState = STATE_DATASET[selectedStateId] || STATE_DATASET['INBR'];
-
   // Fetch National Overview
   const fetchOverview = useCallback(async () => {
     setOverviewLoading(true);
@@ -89,8 +79,10 @@ function DashboardContent() {
       setOverview(data);
       if (data.last_synced_at) {
         const d = new Date(data.last_synced_at);
-        const formatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-        setLastSyncTime(`${formatted} IST`);
+        if (!isNaN(d.getTime())) {
+          const formatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+          setLastSyncTime(formatted);
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to connect to national telemetry service';
@@ -99,6 +91,13 @@ function DashboardContent() {
       setOverviewLoading(false);
     }
   }, []);
+
+  // Automatically sync jurisdiction state when officer logs in
+  useEffect(() => {
+    if (user?.role === 'state_officer' && user.scope_id && STATE_DATASET[user.scope_id]) {
+      setSelectedStateId(user.scope_id);
+    }
+  }, [user]);
 
   // Fetch alert & transfer badge counts
   const fetchBadgeCounts = useCallback(async () => {
@@ -180,9 +179,14 @@ function DashboardContent() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const handleSelectState = (stateId: string) => {
+  const handleSelectState = (stateId: string | null) => {
+    if (stateId === null) {
+      setSelectedStateId(null);
+      return;
+    }
     if (STATE_DATASET[stateId]) {
-      setSelectedStateId(stateId);
+      // Toggle selection: if already selected, deselect
+      setSelectedStateId((prev) => (prev === stateId ? null : stateId));
     }
   };
 
@@ -410,13 +414,8 @@ function DashboardContent() {
                       hoveredStateId={hoveredStateId}
                       onHoverState={setHoveredStateId}
                       statusMap={statusMap}
-                    />
-
-                    {/* Floating Command Panel in Bottom-Left Corner */}
-                    <CommandPanel
-                      state={selectedState}
+                      onNavigate={handleNavigate}
                       onOpenNode={handleOpenNode}
-                      onDrilldownState={handleDrilldownState}
                     />
                   </div>
 
@@ -441,7 +440,7 @@ function DashboardContent() {
         {/* PAGE 2: STATE & DISTRICT DRILL-DOWN */}
         {activePage === 'state-district-drill-down' && (
           <StateDistrictDrilldown
-            selectedStateId={selectedStateId}
+            selectedStateId={selectedStateId ?? undefined}
             onNavigate={handleNavigate}
           />
         )}
@@ -523,3 +522,5 @@ export function App() {
 }
 
 export default App;
+
+

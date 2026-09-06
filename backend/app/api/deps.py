@@ -1,5 +1,4 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -9,10 +8,22 @@ from app.models.enums import UserRoleEnum
 from app.schemas.auth import TokenPayload
 from typing import List, Callable
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+async def _extract_bearer_token(request: Request) -> str | None:
+    auth = request.headers.get('authorization')
+    if not auth:
+        return None
+    parts = auth.split(' ')
+    if len(parts) != 2:
+        return None
+    scheme, token = parts
+    if scheme.lower() != 'bearer':
+        return None
+    return token
+
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
@@ -20,7 +31,19 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    payload: TokenPayload = decode_access_token(token)
+    token = await _extract_bearer_token(request)
+
+    # If no token and DEBUG mode, return seeded admin user for local dev convenience
+    from app.config import settings
+    if not token and settings.DEBUG:
+        query = select(User).where(User.username == 'admin')
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        if user:
+            return user
+        # fallthrough to credentials_exception if admin not present
+
+    payload: TokenPayload = decode_access_token(token) if token else None
     if payload is None or payload.username is None:
         raise credentials_exception
 

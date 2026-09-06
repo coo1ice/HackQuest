@@ -5,7 +5,24 @@ import sys
 # Ensure backend root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import init_db, async_session_maker, engine
+# Force SQLite fallback before any app.database import resolves the engine
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./phc_health_db.sqlite")
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+import app.database as _db_module
+
+# Override the engine to SQLite so init_db() and session_maker use it directly
+_sqlite_url = "sqlite+aiosqlite:///./phc_health_db.sqlite"
+_db_module.engine = create_async_engine(_sqlite_url, echo=False, future=True)
+_db_module.async_session_maker = async_sessionmaker(
+    bind=_db_module.engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+from app.database import init_db, async_session_maker, engine  # noqa: E402 (re-import after patch)
 from app.models import (
     User, UserRoleEnum, PHC, StockRecord, BedRecord,
     StaffAttendanceRecord, FootfallRecord, Forecast,

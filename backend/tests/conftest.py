@@ -10,9 +10,12 @@ from app.main import app
 from app.database import engine
 from app.core.security import create_access_token
 from app.models.enums import UserRoleEnum
+from app.database import init_db
 
 @pytest.fixture
 async def client():
+    # Ensure the database schema exists before running tests
+    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

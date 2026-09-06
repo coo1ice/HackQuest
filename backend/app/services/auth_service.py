@@ -6,14 +6,20 @@ from app.core.security import verify_password, get_password_hash, create_access_
 from app.schemas.auth import Token, UserCreate
 from fastapi import HTTPException, status
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def authenticate_user(db: AsyncSession, username: str, password: str) -> Optional[User]:
     query = select(User).where(User.username == username)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
     if not user:
+        logger.info(f"authenticate_user: no user found for {username}")
+        # keep returning None for authentication failure
         return None
     if not verify_password(password, user.hashed_password):
+        logger.info(f"authenticate_user: password mismatch for {username}")
         return None
     return user
 
