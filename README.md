@@ -4,74 +4,112 @@ A public health incident command, national logistics orchestration, and district
 
 ---
 
-## 🌟 Overview & Architecture
+## 🌟 Overview
 
-This operational platform connects **36 States & Union Territories** and over **31,480+ Primary and Community Health Centers (PHCs/CHCs)** to provide real-time telemetry, automated triage, emergency inventory redistribution, and cold-chain transfer logistics.
+This repository contains two main components:
 
-The application features **5 core connected operational modules**:
+- `backend/` — FastAPI backend, AI/ML pipelines, federated learning and optimization services.
+- `crisis-dashboard/` — React + TypeScript frontend (Vite) for the operational dashboard.
 
-1. **National Overview (`/national-overview`)**:
-   - High-fidelity interactive Spatial Cartography of India with state-level vulnerability telemetry.
-   - Live KPI ledger tracking monitored facilities, critical deficit states, national ICU bed saturation, and in-transit logistics.
-   - Floating Command Panel with live telemetry, bed occupancy, stock runrate, and rapid state drill-down.
-   - States Ranked by Urgency Registry with multi-category triage filters.
-
-2. **State & District Drill-down (`/state-district-drill-down`)**:
-   - Deep-dive into state health commands (e.g. Bihar State Resource Command).
-   - Priority Redistribution Matrix pairing deficit hubs (e.g. Muzaffarpur, Vaishali) with surplus buffer depots (e.g. Patna, Nalanda).
-   - Granular PHC/CHC Telemetry Ledger with live stock runway, bed occupancy, doctor roster ratios, and transfer requisition.
-   - Interactive slide-in Emergency Redistribution modal with Green Corridor authorization.
-
-3. **Urgent Alert Feed (`/urgent-alert-feed`)**:
-   - Real-time national surveillance alert feed with countdown depletion clocks.
-   - Multi-tier filtering by severity (Critical `<48h`, Warning `48-96h`, Staffing Deficits), supply category, and geographic zone.
-   - Automated logistics recommendations with direct deep-linking to emergency redistribution approval.
-
-4. **Emergency Redistribution (`/emergency-redistribution`)**:
-   - Statutory allocation execution under the National Disaster Management Act (NDMA Sec 38).
-   - Tactical transit corridor telemetry and cold-chain route ribbons (+2°C to +8°C).
-   - Side-by-side facility diagnostics comparing donor buffer integrity with recipient deficit load.
-   - Algorithmic match reasoning matrix and legal endorsement digital signature terminal.
-
-5. **Inter-District Transfer Tracking (`/inter-district-transfer-tracking`)**:
-   - National logistics dispatch console tracking active cross-district shipments.
-   - 4-stage live stepper: Recommended &rarr; Approved &rarr; Dispatched [LIVE TRANSIT] &rarr; Received & Reconciled.
-   - Vehicle continuous telemetry stream with live speed, driver contact, compartment temperature sensors, and dispatch milestones.
+The platform provides national and subnational visibility into PHC stock, bed availability, automated redistribution, and federated forecasting.
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Node.js (v18 or higher)
-- npm or pnpm
+Choose one of the components below to run locally.
 
-### Running Locally
+### Backend (FastAPI + ML)
 
-```bash
-# Navigate to the dashboard directory
-cd crisis-dashboard
+Prerequisites:
+- Python 3.10+
+- PostgreSQL running (default host `localhost:5432`, database name `nhrm_india`)
 
-# Install dependencies
-npm install
+Quick start:
 
-# Start the Vite development server
-npm run dev
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   # PowerShell
+pip install -r requirements.txt
 ```
 
-Visit the local development server (typically `http://localhost:5173`).
+Seed DB and train local models:
 
-### Building for Production
+```powershell
+python scripts/seed_and_train.py
+```
+
+Start the API server:
+
+```powershell
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+API docs: http://127.0.0.1:8000/docs
+
+Run tests:
+
+```powershell
+pytest -v tests/test_api.py
+```
+
+See [backend/README.md](backend/README.md#L1) for full backend details.
+
+### Frontend (crisis-dashboard)
+
+Prerequisites:
+- Node.js 18+ and npm (or pnpm)
+
+Quick start:
 
 ```bash
 cd crisis-dashboard
-npm run build
+npm install
+# start dev server (example host/port used by local tasks)
+npm run dev -- --host 127.0.0.1 --port 8080
+```
+
+Open the dashboard at http://127.0.0.1:8080
+
+There are convenience scripts at the repo root for development:
+- `start-dev.bat` / `start-dev.ps1` — start both backend and frontend in a local dev configuration.
+
+To start the full development environment and open the dashboard in your browser run (PowerShell):
+
+```powershell
+.\start-dev.ps1 -OpenBrowser
+```
+
+---
+
+## 🧪 Testing & Validation
+
+- Backend integration tests: run `pytest -v tests/test_api.py` from `backend/`.
+- Frontend: unit and integration tests (if present) are in `crisis-dashboard/`.
+
+End-to-end smoke pipeline (backend):
+
+```powershell
+python backend/scripts/run_pipeline.py
 ```
 
 ---
 
 ## 🛠️ Technology Stack
-- **Framework**: React 19 + TypeScript + Vite
-- **Styling**: Tailwind CSS (Clinical Cool-Slate institutional color architecture)
-- **Icons**: Lucide React & Google Material Symbols Outlined
-- **Design System**: Operational Control-Room specifications adhering to `DESIGN.md`
+- Backend: FastAPI, SQLAlchemy (async), Pydantic v2, Flower (federated learning), XGBoost, Google OR-Tools
+- Frontend: React + TypeScript, Vite, Tailwind CSS
+
+---
+
+## Contributing
+
+If you plan to contribute, please:
+
+1. Read `DESIGN.md` for UI/UX guidelines.
+2. Follow existing code patterns in `backend/app/` and `crisis-dashboard/src/`.
+3. Open issues or draft PRs describing intended changes.
+
+---
+
+If you'd like I can also: add a short developer quickstart script, wire up a `Makefile`/`composer.json`, or create developer-focused documentation pages. Reply with which you'd prefer.
